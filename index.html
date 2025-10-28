@@ -1,7 +1,25 @@
-index.html
-README.md
-app.py
-logo.png
-render.yaml
-requirements.txt
-.github/workflows/static.yml
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Tavern Rota</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700&display=swap" rel="stylesheet">
+  <style>
+    :root{--bg:#111009;--surface:#1a1611;--gold:#d4af37;--red:#c0392b;--text:#e3d9c1;}
+    body{background:var(--bg);color:var(--text);font-family:Cinzel,serif;display:flex;justify-content:center;align-items:center;height:100vh;margin:0}
+    .card{background:var(--surface);padding:2rem;border:2px solid var(--gold);border-radius:8px;width:320px;text-align:center}
+    input{width:100%;padding:.5rem;margin:.5rem 0;border:none;border-radius:4px}
+    button{width:100%;padding:.7rem;background:var(--gold);color:#000;border:none;border-radius:4px;font-weight:bold;cursor:pointer}
+    .error{color:var(--red)}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h2>Tavern Rota</h2>
+    <input id="email" placeholder="email">
+    <input id="password" type="password" placeholder="password">
+    <button onclick="alert('Back-end coming next')">Enter</button>
+  </div>
+</body>
+</html>
