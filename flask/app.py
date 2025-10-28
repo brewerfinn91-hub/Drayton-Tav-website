@@ -1,0 +1,76 @@
+from flask import Flask, request, jsonify
+from flask_sqlalchemy import SQLAlchemy
+from flask_cors import CORS
+import datetime
+import os
+
+app = Flask(__name__)
+CORS(app)
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///tavern.db'
+db = SQLAlchemy(app)
+
+# ------ database tables ------
+class User(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(80), nullable=False)
+    email = db.Column(db.String(120), unique=True, nullable=False)
+    password = db.Column(db.String(120), nullable=False)
+    role = db.Column(db.String(20), default='barstaff')  # admin, dean, barstaff
+
+class Rota(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    month = db.Column(db.String(7), nullable=False)  # 2025-11
+    day = db.Column(db.Integer, nullable=False)      # 1-31
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    user_name = db.Column(db.String(80), db.ForeignKey('user.name'))
+
+# ------ helper ------
+def ensure_admin():
+    if not User.query.filter_by(email='tav@tavern.com').first():
+        tav = User(name='Tav', email='tav@tavern.com', password='pint123', role='admin')
+        db.session.add(tav)
+        # add 4 demo barstaff
+        for name in ['Finn','Heather','Autumn','Nathan']:
+            db.session.add(User(name=name, email=name.lower()+'@tavern.com', password='pint123'))
+        db.session.commit()
+
+# ------ routes ------
+@app.route('/')
+def index():
+    return "Tavern Rota API is running."
+
+@app.route('/api/auth/login', methods=['POST'])
+def login():
+    data = request.get_json()
+    user = User.query.filter_by(email=data['email'], password=data['password']).first()
+    if not user:
+        return jsonify({'error':'Bad credentials'}), 401
+    return jsonify({'id':user.id, 'name':user.name, 'role':user.role})
+
+@app.route('/api/rota/<month>')  # month = 2025-11
+def get_rota(month):
+    rows = Rota.query.filter_by(month=month).all()
+    out = {r.day: r.user_name for r in rows}
+    return jsonify(out)
+
+@app.route('/api/rota/<month>/generate', methods=['POST'])
+def generate_rota(month):
+    # delete old
+    Rota.query.filter_by(month=month).delete()
+    staff = User.query.filter_by(role='barstaff').all()
+    if not staff:
+        return jsonify({'error':'No barstaff'}), 400
+    # simple round-robin
+    for d in range(1, 32):
+        idx = (d-1) % len(staff)
+        db.session.add(Rota(month=month, day=d, user_id=staff[idx].id, user_name=staff[idx].name))
+    db.session.commit()
+    return jsonify({'ok':True})
+
+# ------ start ------
+with app.app_context():
+    db.create_all()
+    ensure_admin()
+
+if __name__ == '__main__':
+    app.run(debug=True)

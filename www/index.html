@@ -28,7 +28,7 @@
   </div>
 
   <script>
-    const API = 'https://tavern-backend-j82t.onrender.com';
+    const API = 'http://localhost:5000/';
 
     async function login() {
       const email = document.getElementById('email').value;
@@ -84,7 +84,7 @@
 
         for(let day=1; day<=daysInMo; day++){
           const staff = days[day];
-          html += `<td${!staff?' class="red"':''}>${day}${staff?'<br>#'+staff:''}</td>`;
+          html += `<td${!staff?' class="red"':''}>${day}${staff?'<br>'+staff:''}</td>`;
           if((monShift + day) % 7 === 0) html += '</tr><tr>';
         }
         html += '</tr>';
