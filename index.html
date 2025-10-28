@@ -71,28 +71,24 @@
         const res = await fetch(`${API}/api/rota/${m}`);
         const days = await res.json();          // {day: userId}
 
-        // build calendar header
-        const head=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
-        let html='<tr class="head">'+head.map(d=>`<th>${d}</th>`).join('')+'</tr>';
+        // ---------- calendar builder ----------
+        const [yr,mo] = m.split('-');
+        const firstDay = new Date(yr, mo-1, 1).getDay(); // 0=Sun
+        const monShift = (firstDay + 6) % 7;             // 0=Mon
+        const daysInMo = new Date(yr, mo, 0).getDate();
 
-        // 1st of month
-        const [yr,mo]=m.split('-');
-        const first=new Date(yr,mo-1,1);
-        let start=first.getDay();          // 0=Sun → make 0=Mon
-        start=(start===0?6:start-1);
+        const head = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+        let html = '<tr class="head">' + head.map(d=>`<th>${d}</th>`).join('') + '</tr><tr>';
+        // blanks before month starts
+        for(let i=0;i<monShift;i++) html += '<td></td>';
 
-        let day=1, totalDays=new Date(yr,mo,0).getDate();
-        while(day<=totalDays){
-          html+='<tr>';
-          for(let i=0;i<7;i++){
-            if((grid.rows.length===1 && i<start) || day>totalDays){ html+='<td></td>'; continue;}
-            const staff=days[day];
-            html+=`<td${!staff?' class="red"':''}>${day}${staff?'<br>#':'<br>—'}</td>`;
-            day++;
-          }
-          html+='</tr>';
+        for(let day=1; day<=daysInMo; day++){
+          const staff = days[day];
+          html += `<td${!staff?' class="red"':''}>${day}${staff?'<br>#'+staff:''}</td>`;
+          if((monShift + day) % 7 === 0) html += '</tr><tr>';
         }
-        grid.innerHTML=html;
+        html += '</tr>';
+        grid.innerHTML = html;
       }catch(e){ grid.innerHTML='<tr><td colspan="7">Error loading rota</td></tr>'; }
     }
 
