@@ -7,15 +7,18 @@
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700&display=swap" rel="stylesheet">
   <style>
     :root{--bg:#111009;--surface:#1a1611;--gold:#d4af37;--red:#c0392b;--text:#e3d9c1;}
-    body{background:var(--bg);color:var(--text);font-family:Cinzel,serif;display:flex;justify-content:center;align-items:center;height:100vh;margin:0}
-    .card{background:var(--surface);padding:2rem;border:2px solid var(--gold);border-radius:8px;width:320px;text-align:center}
-    input{width:100%;padding:.5rem;margin:.5rem 0;border:none;border-radius:4px}
-    button{width:100%;padding:.7rem;background:var(--gold);color:#000;border:none;border-radius:4px;font-weight:bold;cursor:pointer}
+    body{background:var(--bg);color:var(--text);font-family:Cinzel,serif;margin:0;padding:2rem}
+    .card{background:var(--surface);padding:1.5rem;border:2px solid var(--gold);border-radius:8px;max-width:420px;margin:auto}
+    input,button{width:100%;padding:.5rem;margin:.3rem 0;border:none;border-radius:4px}
+    button{background:var(--gold);color:#000;font-weight:bold;cursor:pointer}
     .error{color:var(--red)}
+    table{width:100%;border-collapse:collapse;margin-top:1rem}
+    td,th{border:1px solid var(--gold);padding:.4rem;text-align:center}
+    .red{background:var(--red)}
   </style>
 </head>
 <body>
-  <div class="card">
+  <div id="app" class="card">
     <h2>Tavern Rota</h2>
     <input id="email" placeholder="email">
     <input id="password" type="password" placeholder="password">
@@ -40,17 +43,47 @@
         });
         const data = await res.json();
         if (data.error) { msgEl.textContent = data.error; return; }
-
-        document.body.innerHTML = `
-          <div class="card">
-            <h2>Welcome ${data.name}</h2>
-            <p>You are logged in as <strong>${data.role}</strong>.</p>
-            <p>Back-end is working!</p>
-            <button onclick="location.reload()">Logout</button>
-          </div>`;
+        showRota(data);
       } catch (e) {
         msgEl.textContent = 'Back-end unreachable';
       }
+    }
+
+    function showRota(user) {
+      document.body.innerHTML = `
+        <div class="card">
+          <h2>Welcome ${user.name}</h2>
+          <p>Role: <strong>${user.role}</strong></p>
+          <label>Month: <input type="month" id="month" value="2025-11"></label>
+          <button onclick="loadRota()">Load</button>
+          <button id="genBtn" style="display:${user.role==='admin'?'inline-block':'none'}" onclick="generateRota()">Generate</button>
+          <table><tbody id="grid"></tbody></table>
+          <button onclick="location.reload()">Logout</button>
+        </div>`;
+    }
+
+    async function loadRota() {
+      const m = document.getElementById('month').value;
+      const grid = document.getElementById('grid');
+      grid.innerHTML = '<tr><td colspan="2">Loading…</td></tr>';
+      try {
+        const res = await fetch(`${API}/api/rota/${m}`);
+        const days = await res.json();
+        let html = '';
+        for (let d = 1; d <= 31; d++) {
+          const staff = days[d];
+          html += `<tr${!staff?' class="red"':''}><td>Day ${d}</td><td>${staff? 'Staff #'+staff : 'UNSTAFFED'}</td></tr>`;
+        }
+        grid.innerHTML = html;
+      } catch (e) {
+        grid.innerHTML = '<tr><td colspan="2">Error loading rota</td></tr>';
+      }
+    }
+
+    async function generateRota() {
+      const m = document.getElementById('month').value;
+      await fetch(`${API}/api/rota/${m}/generate`, {method: 'POST'});
+      loadRota();
     }
   </script>
 </body>
