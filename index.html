@@ -8,13 +8,14 @@
   <style>
     :root{--bg:#111009;--surface:#1a1611;--gold:#d4af37;--red:#c0392b;--text:#e3d9c1;}
     body{background:var(--bg);color:var(--text);font-family:Cinzel,serif;margin:0;padding:2rem}
-    .card{background:var(--surface);padding:1.5rem;border:2px solid var(--gold);border-radius:8px;max-width:420px;margin:auto}
-    input,button{width:100%;padding:.5rem;margin:.3rem 0;border:none;border-radius:4px}
+    .card{background:var(--surface);padding:1.5rem;border:2px solid var(--gold);border-radius:8px;max-width:760px;margin:auto}
+    input,button{padding:.5rem;margin:.3rem .2rem;border:none;border-radius:4px}
     button{background:var(--gold);color:#000;font-weight:bold;cursor:pointer}
     .error{color:var(--red)}
-    table{width:100%;border-collapse:collapse;margin-top:1rem}
-    td,th{border:1px solid var(--gold);padding:.4rem;text-align:center}
+    table{width:100%;border-collapse:collapse;margin-top:1rem;text-align:center}
+    td,th{border:1px solid var(--gold);padding:.4rem 0;width:14.28%}
     .red{background:var(--red)}
+    .head{font-weight:bold;background:rgba(212,175,55,.15)}
   </style>
 </head>
 <body>
@@ -57,7 +58,7 @@
           <label>Month: <input type="month" id="month" value="2025-11"></label>
           <button onclick="loadRota()">Load</button>
           <button id="genBtn" style="display:${user.role==='admin'?'inline-block':'none'}" onclick="generateRota()">Generate</button>
-          <table><tbody id="grid"></tbody></table>
+          <table id="grid"></table>
           <button onclick="location.reload()">Logout</button>
         </div>`;
     }
@@ -65,19 +66,34 @@
     async function loadRota() {
       const m = document.getElementById('month').value;
       const grid = document.getElementById('grid');
-      grid.innerHTML = '<tr><td colspan="2">Loading…</td></tr>';
+      grid.innerHTML='<tr><td colspan="7">Loading…</td></tr>';
       try {
         const res = await fetch(`${API}/api/rota/${m}`);
-        const days = await res.json();
-        let html = '';
-        for (let d = 1; d <= 31; d++) {
-          const staff = days[d];
-          html += `<tr${!staff?' class="red"':''}><td>Day ${d}</td><td>${staff? 'Staff #'+staff : 'UNSTAFFED'}</td></tr>`;
+        const days = await res.json();          // {day: userId}
+
+        // build calendar header
+        const head=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+        let html='<tr class="head">'+head.map(d=>`<th>${d}</th>`).join('')+'</tr>';
+
+        // 1st of month
+        const [yr,mo]=m.split('-');
+        const first=new Date(yr,mo-1,1);
+        let start=first.getDay();          // 0=Sun → make 0=Mon
+        start=(start===0?6:start-1);
+
+        let day=1, totalDays=new Date(yr,mo,0).getDate();
+        while(day<=totalDays){
+          html+='<tr>';
+          for(let i=0;i<7;i++){
+            if((grid.rows.length===1 && i<start) || day>totalDays){ html+='<td></td>'; continue;}
+            const staff=days[day];
+            html+=`<td${!staff?' class="red"':''}>${day}${staff?'<br>#':'<br>—'}</td>`;
+            day++;
+          }
+          html+='</tr>';
         }
-        grid.innerHTML = html;
-      } catch (e) {
-        grid.innerHTML = '<tr><td colspan="2">Error loading rota</td></tr>';
-      }
+        grid.innerHTML=html;
+      }catch(e){ grid.innerHTML='<tr><td colspan="7">Error loading rota</td></tr>'; }
     }
 
     async function generateRota() {
