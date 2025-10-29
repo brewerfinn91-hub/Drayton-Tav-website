@@ -8,7 +8,7 @@
   <style>
     :root{--bg:#111009;--surface:#1a1611;--gold:#d4af37;--red:#c0392b;--text:#e3d9c1;}
     body{background:var(--bg);color:var(--text);font-family:Cinzel,serif;margin:0;padding:2rem}
-    .card{background:var(--surface);padding:1.5rem;border:2px solid var(--gold);border-radius:8px;max-width:760px;margin:auto}
+    .card{background:var(--surface);padding:1.5rem;border:2px solid var(--gold);border-radius:8px;max-width:900px;margin:auto}
     input,button{padding:.5rem;margin:.3rem .2rem;border:none;border-radius:4px}
     button{background:var(--gold);color:#000;font-weight:bold;cursor:pointer}
     .error{color:var(--red)}
@@ -16,6 +16,7 @@
     td,th{border:1px solid var(--gold);padding:.4rem 0;width:14.28%}
     .red{background:var(--red)}
     .head{font-weight:bold;background:rgba(212,175,55,.15)}
+    .pub{background:#2e7d32}
   </style>
 </head>
 <body>
@@ -29,6 +30,7 @@
 
   <script>
     const API = 'https://tavern-backend-j82t.onrender.com';
+    let USER = null;
 
     async function login() {
       const email = document.getElementById('email').value;
@@ -44,47 +46,52 @@
         });
         const data = await res.json();
         if (data.error) { msgEl.textContent = data.error; return; }
-        showRota(data);
+        USER = data;
+        showRota();
       } catch (e) {
         msgEl.textContent = 'Back-end unreachable';
       }
     }
 
-    function showRota(user) {
+    function showRota() {
       document.body.innerHTML = `
         <div class="card">
-          <h2>Welcome ${user.name}</h2>
-          <p>Role: <strong>${user.role}</strong></p>
+          <h2>Welcome ${USER.name}</h2>
+          <p>Role: <strong>${USER.role}</strong></p>
           <label>Month: <input type="month" id="month" value="2025-11"></label>
           <button onclick="loadRota()">Load</button>
-          <button id="genBtn" style="display:${user.role==='admin'?'inline-block':'none'}" onclick="generateRota()">Generate</button>
+          <button id="genBtn" style="display:${USER.role==='admin'?'inline-block':'none'}" onclick="generateRota()">Generate</button>
+          <button id="pubBtn" style="display:${USER.role==='admin'?'inline-block':'none'}" onclick="publishRota()">Publish</button>
+          <button onclick="showRequests()">Day-off requests</button>
           <table id="grid"></table>
           <button onclick="location.reload()">Logout</button>
         </div>`;
     }
 
+    // ==================== ROTA ====================
     async function loadRota() {
       const m = document.getElementById('month').value;
       const grid = document.getElementById('grid');
       grid.innerHTML='<tr><td colspan="7">Loading…</td></tr>';
       try {
         const res = await fetch(`${API}/api/rota/${m}`);
-        const days = await res.json();          // {day: userId}
+        const ans  = await res.json();
+        const days = ans.days;
+        const published = ans.published;
+        document.getElementById('pubBtn').className = published ? 'pub' : '';
 
-        // ---------- calendar builder ----------
         const [yr,mo] = m.split('-');
-        const firstDay = new Date(yr, mo-1, 1).getDay(); // 0=Sun
-        const monShift = (firstDay + 6) % 7;             // 0=Mon
+        const firstDay = new Date(yr, mo-1, 1).getDay();
+        const monShift = (firstDay + 6) % 7;
         const daysInMo = new Date(yr, mo, 0).getDate();
 
         const head = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
         let html = '<tr class="head">' + head.map(d=>`<th>${d}</th>`).join('') + '</tr><tr>';
-        // blanks before month starts
         for(let i=0;i<monShift;i++) html += '<td></td>';
 
         for(let day=1; day<=daysInMo; day++){
           const staff = days[day];
-          html += `<td${!staff?' class="red"':''}>${day}${staff?'<br>#'+staff:''}</td>`;
+          html += `<td${!staff?' class="red"':''}>${day}${staff?`<br><b>${staff}</b>`:''}</td>`;
           if((monShift + day) % 7 === 0) html += '</tr><tr>';
         }
         html += '</tr>';
@@ -96,6 +103,68 @@
       const m = document.getElementById('month').value;
       await fetch(`${API}/api/rota/${m}/generate`, {method: 'POST'});
       loadRota();
+    }
+
+    async function publishRota() {
+      const m = document.getElementById('month').value;
+      await fetch(`${API}/api/rota/${m}/publish`, {method: 'POST'});
+      loadRota();
+    }
+
+    // ==================== DAY-OFF REQUESTS ====================
+    async function showRequests() {
+      const reqDiv = document.createElement('div');
+      reqDiv.className = 'card';
+      reqDiv.innerHTML = `<h3>Day-off requests</h3>
+        <table id="reqTable"></table>
+        <h4>Request a day off</h4>
+        <input type="date" id="reqDate">
+        <input placeholder="reason (optional)" id="reqNote">
+        <button onclick="submitRequest()">Submit</button>
+        <button onclick="showRota()">Close</button>`;
+      document.body.appendChild(reqDiv);
+      loadReqTable();
+    }
+
+    async function loadReqTable() {
+      const admin = USER.role==='admin';
+      const res = await fetch(`${API}/api/requests` + (admin ? '' : '?user='+USER.id));
+      const list = await res.json();
+      const tbl = document.getElementById('reqTable');
+      tbl.innerHTML = '<tr class="head"><td>Date</td><td>Name</td><td>Note</td><td>Status</td>' +
+                      (admin?'<td>Action</td>':'') + '</tr>';
+      list.forEach(r=>{
+        let row = `<tr><td>${r.date}</td><td>${r.name}</td><td>${r.note||'—'}</td><td>${r.status}</td>`;
+        if(admin){
+          row += `<td>
+            ${r.status==='pending'?`<button onclick="decideReq(${r.id},'approved')">✓</button>
+                                    <button onclick="decideReq(${r.id},'declined')">✗</button>`:''}
+          </td>`;
+        }
+        row += '</tr>';
+        tbl.innerHTML += row;
+      });
+    }
+
+    async function submitRequest() {
+      const date = document.getElementById('reqDate').value;
+      const note = document.getElementById('reqNote').value;
+      if(!date){alert('Pick a date');return;}
+      await fetch(`${API}/api/requests`, {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({user_id:USER.id, date, note})
+      });
+      loadReqTable();
+    }
+
+    async function decideReq(id,status){
+      await fetch(`${API}/api/requests/${id}`, {
+        method: 'PATCH',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({status})
+      });
+      loadReqTable();
     }
   </script>
 </body>
