@@ -6,27 +6,69 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700&display=swap" rel="stylesheet">
   <style>
-    :root{--bg:#111009;--surface:#1a1611;--gold:#d4af37;--red:#c0392b;--text:#e3d9c1;}
-    body{background:var(--bg);color:var(--text);font-family:Cinzel,serif;margin:0;padding:2rem}
-    .card{background:var(--surface);padding:1.5rem;border:2px solid var(--gold);border-radius:8px;max-width:900px;margin:auto}
-    input,button{padding:.5rem;margin:.3rem .2rem;border:none;border-radius:4px}
-    button{background:var(--gold);color:#000;font-weight:bold;cursor:pointer}
-    .error{color:var(--red)}
+    :root{--bg:#1a120b;--surface:#2c2416;--gold:#d4af37;--red:#c0392b;--text:#e3d9c1;}
+    body{background:var(--bg);color:var(--text);font-family:Cinzel,serif;margin:0;height:100vh;display:flex}
+    /* ---- LEFT MENU ---- */
+    .side{background:var(--surface);width:200px;padding:1rem;border-right:2px solid var(--gold);}
+    .side h3{margin:.5rem 0;font-size:1.1rem}
+    .side button{width:100%;margin:.3rem 0;padding:.6rem;background:var(--gold);color:#000;border:none;border-radius:4px;font-weight:bold;cursor:pointer}
+    .side button:disabled{background:#666;cursor:not-allowed}
+    /* ---- MAIN AREA ---- */
+    .main{flex:1;padding:1.5rem;overflow-y:auto}
+    .card{background:var(--surface);padding:1rem;border:1px solid var(--gold);border-radius:6px;margin-bottom:1rem}
+    input{padding:.4rem;margin:.2rem;border:none;border-radius:3px}
     table{width:100%;border-collapse:collapse;margin-top:1rem;text-align:center}
-    td,th{border:1px solid var(--gold);padding:.4rem 0;width:14.28%}
-    .red{background:var(--red)}.head{font-weight:bold;background:rgba(212,175,55,.15)}
-    .bar{background:var(--gold);height:10px;border-radius:4px;margin:2px 0}
-    .warn{color:var(--red);font-size:.9rem}
+    td,th{border:1px solid var(--gold);padding:.4rem}
+    .red{background:var(--red)}
+    .head{font-weight:bold;background:rgba(212,175,55,.2)}
+    .slot2{background:rgba(212,175,55,.1)}
   </style>
 </head>
 <body>
-  <div id="app" class="card">
-    <h2>Tavern Rota</h2>
-    <input id="email" placeholder="email">
-    <input id="password" type="password" placeholder="password">
-    <p id="msg" class="error"></p>
-    <button onclick="login()">Enter</button>
-  </div>
+  <!-- ===== LEFT MENU ===== -->
+  <nav class="side">
+    <h3>🍺 Tavern Rota</h3>
+    <button id="btnLoad"   onclick="loadRota()">Load Month</button>
+    <button id="btnGen"    onclick="generateRota()" disabled>Generate</button>
+    <button id="btnPub"    onclick="publishRota()" disabled>Publish</button>
+    <button id="btnHours"  onclick="showHours()">Log Hours</button>
+    <button id="btnReq"    onclick="showRequests()">Day-off Requests</button>
+    <button onclick="location.reload()">Logout</button>
+    <div id="userInfo" style="margin-top:1rem;font-size:.9rem"></div>
+  </nav>
+
+  <!-- ===== MAIN CONTENT ===== -->
+  <main class="main">
+    <div id="loginCard" class="card">
+      <h2>Tavern Login</h2>
+      <input id="email" placeholder="email">
+      <input id="password" type="password" placeholder="password">
+      <p id="msg" class="error"></p>
+      <button onclick="login()">Enter</button>
+    </div>
+    <div id="rotaCard" class="card" style="display:none">
+      <h2>Monthly Rota</h2>
+      <label>Month: <input type="month" id="month" value="2025-11"></label>
+      <table id="grid"></table>
+    </div>
+    <div id="hoursCard" class="card" style="display:none">
+      <h3>Log worked hours</h3>
+      <input type="date" id="hwDate" value="${new Date().toISOString().slice(0,10)}">
+      <input type="time" id="hwStart" value="14:00">
+      <input type="time" id="hwEnd" value="22:00">
+      <button onclick="submitHours()">Save</button>
+      <button onclick="showRota()">Close</button>
+    </div>
+    <div id="reqCard" class="card" style="display:none">
+      <h3>Day-off requests</h3>
+      <table id="reqTable"></table>
+      <h4>Request a day off</h4>
+      <input type="date" id="reqDate">
+      <input placeholder="reason (optional)" id="reqNote">
+      <button onclick="submitRequest()">Submit</button>
+      <button onclick="showRota()">Close</button>
+    </div>
+  </main>
 
   <script>
     const API = 'https://tavern-backend-j82t.onrender.com';
@@ -37,7 +79,6 @@
       const pw = document.getElementById('password').value;
       const msgEl = document.getElementById('msg');
       msgEl.textContent = '';
-
       try {
         const res = await fetch(`${API}/api/auth/login`, {
           method: 'POST',
@@ -47,53 +88,29 @@
         const data = await res.json();
         if (data.error) { msgEl.textContent = data.error; return; }
         USER = data;
-        showRota();
+        document.getElementById('userInfo').innerHTML = `<b>${USER.name}</b><br>Role: ${USER.role}<br>Contracted: ${USER.contracted_hours} h`;
+        document.getElementById('loginCard').style.display = 'none';
+        document.getElementById('rotaCard').style.display = 'block';
+        document.getElementById('btnGen').disabled = USER.role !== 'admin';
+        document.getElementById('btnPub').disabled = USER.role !== 'admin';
+        loadRota();
       } catch (e) {
         msgEl.textContent = 'Back-end unreachable';
       }
-    }
-
-    function showRota() {
-      document.body.innerHTML = `
-        <div class="card">
-          <h2>Welcome ${USER.name}</h2>
-          <p>Role: <strong>${USER.role}</strong></p>
-          <label>Month: <input type="month" id="month" value="2025-11"></label>
-          <button onclick="loadRota()">Load</button>
-          <button id="genBtn" style="display:${USER.role==='admin'?'inline-block':'none'}" onclick="generateRota()">Generate</button>
-          <button id="pubBtn" style="display:${USER.role==='admin'?'inline-block':'none'}" onclick="publishRota()">Publish</button>
-          <button onclick="showHours()">Log Hours</button>
-          <button onclick="showRequests()">Day-off requests</button>
-          <div id="hoursBar"></div>
-          <table id="grid"></table>
-          <button onclick="location.reload()">Logout</button>
-        </div>`;
     }
 
     // ==================== ROTA ====================
     async function loadRota() {
       const m = document.getElementById('month').value;
       const grid = document.getElementById('grid');
-      const barDiv = document.getElementById('hoursBar');
       grid.innerHTML='<tr><td colspan="7">Loading…</td></tr>';
       try {
         const res = await fetch(`${API}/api/rota/${m}`);
         const ans  = await res.json();
         const days = ans.days;
         const published = ans.published;
-        document.getElementById('pubBtn').className = published ? 'pub' : '';
+        document.getElementById('btnPub').className = published ? 'pub' : '';
 
-        // ----- hours progress bars -----
-        let bars = '<h3>Contracted hours progress</h3>';
-        for(const [name,obj] of Object.entries(ans.hours)){
-          const pc = obj.pc;
-          bars += `<div>${name}  ${obj.worked} / ${obj.contracted} hrs  
-                   <div class="bar" style="width:${pc}%"></div> ${pc}%  
-                   ${pc<90?'<span class="warn">⚠ low</span>':''}</div>`;
-        }
-        barDiv.innerHTML = bars;
-
-        // ----- calendar -----
         const [yr,mo] = m.split('-');
         const firstDay = new Date(yr, mo-1, 1).getDay();
         const monShift = (firstDay + 6) % 7;
@@ -104,8 +121,17 @@
         for(let i=0;i<monShift;i++) html += '<td></td>';
 
         for(let day=1; day<=daysInMo; day++){
-          const staff = days[day];
-          html += `<td${!staff?' class="red"':''}>${day}${staff?`<br><b>${staff}</b>`:''}</td>`;
+          const slots = days[day] || [];
+          const wd = new Date(yr,mo-1,day).getDay();
+          let cell = `<td><b>${day}</b><br>`;
+          slots.forEach(s=>{
+            const editable = USER.role==='admin' && s.slot===2 && s.start==='';
+            cell += `<div class="slot${s.slot===2?' slot2':''}">${s.name} ${s.start}-${s.finish}</div>`;
+            if(editable) cell += `<button onclick="setStart(${day},2)">Set start</button>`;
+          });
+          if(!slots.length) cell += '<span class="red">—</span>';
+          cell += '</td>';
+          html += cell;
           if((monShift + day) % 7 === 0) html += '</tr><tr>';
         }
         html += '</tr>';
@@ -125,19 +151,23 @@
       loadRota();
     }
 
-    // ==================== HOURS LOGGER ====================
-    function showHours() {
-      const div = document.createElement('div');
-      div.className = 'card';
-      div.innerHTML = `<h3>Log worked hours</h3>
-        <input type="date" id="hwDate" value="${new Date().toISOString().slice(0,10)}">
-        <input type="time" id="hwStart" value="09:00">
-        <input type="time" id="hwEnd" value="17:00">
-        <button onclick="submitHours()">Save</button>
-        <button onclick="showRota()">Close</button>`;
-      document.body.appendChild(div);
+    async function setStart(day,slot){
+      const start=prompt('Start time (HH:MM)','15:00');
+      if(!start) return;
+      const m=document.getElementById('month').value;
+      await fetch(`${API}/api/rota/${m}/slot/${day}/${slot}`, {
+        method: 'PATCH',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({start:start})
+      });
+      loadRota();
     }
 
+    // ==================== HOURS LOGGER ====================
+    function showHours() {
+      document.getElementById('rotaCard').style.display='none';
+      document.getElementById('hoursCard').style.display='block';
+    }
     async function submitHours() {
       const data = {
         user_id: USER.id,
@@ -150,28 +180,24 @@
         headers: {'Content-Type':'application/json'},
         body: JSON.stringify(data)
       });
-      alert('Hours logged – reload month to see progress');
+      alert('Hours logged');
       showRota();
+    }
+    function showRota() {
+      document.getElementById('hoursCard').style.display='none';
+      document.getElementById('reqCard').style.display='none';
+      document.getElementById('rotaCard').style.display='block';
     }
 
     // ==================== DAY-OFF REQUESTS ====================
     function showRequests() {
-      const div = document.createElement('div');
-      div.className = 'card';
-      div.innerHTML = `<h3>Day-off requests</h3>
-        <table id="reqTable"></table>
-        <h4>Request a day off</h4>
-        <input type="date" id="reqDate">
-        <input placeholder="reason (optional)" id="reqNote">
-        <button onclick="submitRequest()">Submit</button>
-        <button onclick="showRota()">Close</button>`;
-      document.body.appendChild(div);
+      document.getElementById('rotaCard').style.display='none';
+      document.getElementById('reqCard').style.display='block';
       loadReqTable();
     }
-
     async function loadReqTable() {
       const admin = USER.role==='admin';
-      const res = await fetch(`${API}/api/requests` + (admin ? '?admin=1' : '?user='+USER.id));
+      const res = await fetch(`${API}/api/requests' + (admin ? '?admin=1' : '?user='+USER.id));
       const list = await res.json();
       const tbl = document.getElementById('reqTable');
       tbl.innerHTML = '<tr class="head"><td>Date</td><td>Name</td><td>Note</td><td>Status</td>'+(admin?'<td>Action</td>':'')+'</tr>';
@@ -185,7 +211,6 @@
         tbl.innerHTML += row;
       });
     }
-
     async function submitRequest() {
       const date = document.getElementById('reqDate').value;
       const note = document.getElementById('reqNote').value;
@@ -197,7 +222,6 @@
       });
       loadReqTable();
     }
-
     async function decideReq(id,status){
       await fetch(`${API}/api/requests/${id}`, {
         method: 'PATCH',
