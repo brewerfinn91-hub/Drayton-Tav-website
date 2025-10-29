@@ -19,7 +19,7 @@ class User(db.Model):
 
 class Rota(db.Model):
     id         = db.Column(db.Integer, primary_key=True)
-    month      = db.Column(db.String(7), nullable=False)   # 2025-11
+    month      = db.Column(db.String(7), nullable=False)
     day        = db.Column(db.Integer, nullable=False)
     user_id    = db.Column(db.Integer, db.ForeignKey('user.id'))
     start      = db.Column(db.String(5), default='')
@@ -35,13 +35,6 @@ def ensure_demo():
         finn    = User(name='Finn', email='finn@tavern.com', password='finn', contracted_hours=140)
         db.session.add_all([dean, heather, finn])
         db.session.commit()
-
-# ==================== HELPERS ====================
-DAILY = {0:('14:00','22:00'), 1:('14:00','22:00'), 2:('14:00','22:00'), 3:('14:00','22:00'),
-         4:('14:00','00:00'), 5:('12:00','22:00'), 6:('12:00','17:00')}
-
-def close_time(wd):
-    return DAILY[wd][1]
 
 # ==================== ROUTES ====================
 @app.route('/')
@@ -80,7 +73,7 @@ def generate_rota(month):
     for d in cal.itermonthdays(y,m):
         if d==0: continue
         wd = datetime.date(y,m,d).weekday()
-        st, fn = DAILY[wd]
+        st, fn = ('14:00','22:00') if wd<4 else ('12:00','22:00') if wd==5 else ('12:00','17:00')
         # slot 1
         idx = (d-1) % len(staff)
         db.session.add(Rota(month=month, day=d, user_id=staff[idx].id, start=st, finish=fn, slot=1))
@@ -93,8 +86,7 @@ def generate_rota(month):
 @app.route('/api/rota/<month>/slot/<int:day>/<int:slot>', methods=['PATCH'])
 def set_slot_time(month, day, slot):
     data = request.get_json()
-    Rota.query.filter_by(month=month, day=day, slot=slot)\
-              .update({'start':data['start']})
+    Rota.query.filter_by(month=month, day=day, slot=slot).update({'start':data['start']})
     db.session.commit()
     return jsonify({'ok':True})
 
@@ -103,24 +95,6 @@ def publish_rota(month):
     Rota.query.filter_by(month=month).update({'published':True})
     db.session.commit()
     return jsonify({'ok':True})
-
-@app.route('/api/report/<month>')
-def report(month):
-    y, m = map(int, month.split('-'))
-    staff = User.query.filter_by(role='barstaff').all()
-    out = {}
-    for s in staff:
-        q = db.session.query(db.func.sum(
-                db.func.strftime('%s', Hours.finish) - db.func.strftime('%s', Hours.start)
-            ))\
-            .filter(Hours.user_id == s.id,
-                    db.func.strftime('%Y-%m', Hours.date) == month)\
-            .scalar()
-        worked = (q or 0) / 3600
-        out[s.name] = {'contracted':s.contracted_hours,
-                       'worked':round(worked,1),
-                       'balance':round(s.contracted_hours - worked,1)}
-    return jsonify(out)
 
 # ---------- HOURS ----------
 class Hours(db.Model):
@@ -141,7 +115,7 @@ def log_hours():
     db.session.commit()
     return jsonify({'ok':True})
 
-# ---------- DAY-OFF REQUESTS ----------
+# ---------- REQUESTS ----------
 class Request(db.Model):
     id      = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
