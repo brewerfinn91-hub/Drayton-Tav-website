@@ -205,6 +205,25 @@ def edit_user(user_id):
     db.session.commit()
     return jsonify({'ok':True})
 
+# ---------- MONTHLY REPORT (hours worked vs contracted) ----------
+@app.route('/api/report/<month>')
+def report(month):
+    y, m = map(int, month.split('-'))
+    staff = User.query.filter_by(role='barstaff').all()
+    out = {}
+    for s in staff:
+        q = db.session.query(db.func.sum(
+                db.func.strftime('%s', Hours.finish) - db.func.strftime('%s', Hours.start)
+            ))\
+            .filter(Hours.user_id == s.id,
+                    db.func.strftime('%Y-%m', Hours.date) == month)\
+            .scalar()
+        worked = (q or 0) / 3600
+        out[s.name] = {'contracted':s.contracted_hours,
+                       'worked':round(worked,1),
+                       'needed':round(s.contracted_hours - worked,1)}
+    return jsonify(out)
+
 # ---------- START ----------
 if __name__ == '__main__':
     app.run(debug=True)
