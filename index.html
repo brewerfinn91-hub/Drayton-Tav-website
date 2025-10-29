@@ -9,7 +9,6 @@
     :root{--wood:#2c1e0f;--gold:#d4af37;--cream:#f3e9c3;--red:#c0392b;--bg:#1a120b;}
     *{box-sizing:border-box;margin:0;padding:0}
     body{font-family:'Roboto',sans-serif;background:url('logo.png') center/cover no-repeat fixed, linear-gradient(rgba(26,18,11,.9),rgba(26,18,11,.9)); color:var(--cream); height:100vh; display:flex}
-    /* LOGIN */
     .login-wrap{width:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:2rem}
     .logo{width:240px; margin-bottom:1.5rem; filter:drop-shadow(0 0 10px var(--gold))}
     .login-card{background:rgba(0,0,0,.5); border:2px solid var(--gold); border-radius:12px; padding:2rem 2.5rem; width:100%; max-width:380px; text-align:center}
@@ -18,7 +17,6 @@
     .login-card button{width:100%; padding:.8rem; margin-top:.5rem; border:none; border-radius:6px; background:var(--gold); color:#000; font-weight:bold; font-size:1rem; cursor:pointer; transition:.2s}
     .login-card button:hover{filter:brightness(1.1)}
     .error{color:var(--red); margin-top:.5rem}
-    /* APP */
     .app{display:none; flex:1; height:100vh}
     nav{width:240px; background:var(--wood); border-right:3px solid var(--gold); padding:1.5rem 1rem; display:flex; flex-direction:column}
     nav h3{font-family:'Cinzel',serif; text-align:center; margin-bottom:1.5rem; letter-spacing:1px}
@@ -40,7 +38,7 @@
   </style>
 </head>
 <body>
-  <!-- ========== LOGIN ========== -->
+  <!-- ========== LOGIN SCREEN ========== -->
   <div class="login-wrap" id="loginWrap">
     <img src="logo.png" alt="The Drayton Tavern" class="logo">
     <div class="login-card">
@@ -59,8 +57,7 @@
       <button id="btnLoad"   onclick="loadRota()">Load Month</button>
       <button id="btnGen"    onclick="generateRota()" disabled>Generate</button>
       <button id="btnPub"    onclick="publishRota()" disabled>Publish</button>
-      <button id="btnHours"  onclick="showHours()">Log Hours</button>
-      <button id="btnReq"    onclick="showRequests()">Day-off Requests</button>
+      <button id="btnHours"  onclick="showHours()">Log Hours / Day-off</button>
       <button id="btnStaff"  onclick="showStaff()" disabled>Staff Panel</button>
       <button onclick="logout()">Logout</button>
       <div id="userInfo" style="margin-top:1rem;font-size:.85rem;"></div>
@@ -74,24 +71,27 @@
         <table id="grid"></table>
       </div>
 
-      <!-- HOURS -->
-      <div id="hoursCard" class="card" style="display:none">
-        <h3>Log Worked Hours</h3>
-        <input type="date" id="hwDate" value="${new Date().toISOString().slice(0,10)}">
+      <!-- HOURS + REQUESTS (same card) -->
+      <div id="hoursReqCard" class="card" style="display:none">
+        <h3>Log Hours / Day-off Requests</h3>
+
+        <!-- Log Hours -->
+        <h4>Log Worked Hours</h4>
+        <input type="date" id="hwDate" value="2025-11-01">
         <input type="time" id="hwStart" value="14:00">
         <input type="time" id="hwEnd" value="22:00">
-        <button onclick="submitHours()">Save</button>
-        <button onclick="showRota()">Close</button>
-      </div>
+        <button onclick="submitHours()">Save Hours</button>
 
-      <!-- REQUESTS -->
-      <div id="reqCard" class="card" style="display:none">
-        <h3>Day-off Requests</h3>
-        <table id="reqTable"></table>
+        <!-- Request Day Off -->
         <h4>Request a Day Off</h4>
         <input type="date" id="reqDate">
         <input placeholder="reason (optional)" id="reqNote">
-        <button onclick="submitRequest()">Submit</button>
+        <button onclick="submitRequest()">Submit Request</button>
+
+        <!-- Existing Requests -->
+        <h4>Your Requests</h4>
+        <table id="reqTable"></table>
+
         <button onclick="showRota()">Close</button>
       </div>
 
@@ -102,18 +102,14 @@
         <!-- Add User -->
         <h4>Add User</h4>
         <input id="addName" placeholder="Name">
-        <input id="addEmail" placeholder="email@tavern.com">
+        <input id="addEmail" placeholder="email">
         <select id="addRole"><option>barstaff</option><option>admin</option></select>
         <input id="addHours" type="number" placeholder="contracted hours" value="40">
         <button onclick="addUser()">Add</button>
 
         <!-- Current Staff -->
-        <h4>Current Staff</h4>
+        <h4>Current Staff – Hours & Requests</h4>
         <table id="staffTable"></table>
-
-        <!-- Hours & Requests Overview -->
-        <h4>Hours & Requests Overview</h4>
-        <div id="overview"></div>
       </div>
     </main>
   </div>
@@ -151,206 +147,12 @@
 
     function logout(){ location.reload(); }
 
-    /* ========== ROTA ========== */
+    /* ========== ROTA (auto-removes approved day-off) ========== */
     async function loadRota() {
       const m = document.getElementById('month').value;
       const grid = document.getElementById('grid');
       grid.innerHTML='<tr><td colspan="7">Loading…</td></tr>';
       try {
-        const res = await fetch(`${API}/api/rota/${m}`);
-        const ans  = await res.json();
-        const days = ans.days;
-        const published = ans.published;
-        document.getElementById('btnPub').className = published ? 'pub' : '';
-
-        const [yr,mo] = m.split('-');
-        const firstDay = new Date(yr, mo-1, 1).getDay();
-        const monShift = (firstDay + 6) % 7;
-        const daysInMo = new Date(yr, mo, 0).getDate();
-
-        const head = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
-        let html = '<tr class="head">' + head.map(d=>`<th>${d}</th>`).join('') + '</tr><tr>';
-        for(let i=0;i<monShift;i++) html += '<td></td>';
-
-        for(let day=1; day<=daysInMo; day++){
-          const slots = days[day] || [];
-          const wd = new Date(yr,mo-1,day).getDay();
-          let cell = `<td><b>${day}</b><br>`;
-          slots.forEach(s=>{
-            const editable = USER.role==='admin' && s.slot===2 && s.start==='';
-            cell += `<div class="slot${s.slot===2?' slot2':''}">${s.name} ${s.start}-${s.finish}</div>`;
-            if(editable) cell += `<button onclick="setStart(${day},2)">Set start</button>`;
-          });
-          if(!slots.length) cell += '<span class="red">—</span>';
-          cell += '</td>';
-          html += cell;
-          if((monShift + day) % 7 === 0) html += '</tr><tr>';
-        }
-        html += '</tr>';
-        grid.innerHTML = html;
-      }catch(e){ grid.innerHTML='<tr><td colspan="7">Error loading rota</td></tr>'; }
-    }
-
-    async function generateRota() {
-      const m = document.getElementById('month').value;
-      await fetch(`${API}/api/rota/${m}/generate`, {method: 'POST'});
-      loadRota();
-    }
-
-    async function publishRota() {
-      const m = document.getElementById('month').value;
-      await fetch(`${API}/api/rota/${m}/publish`, {method: 'POST'});
-      loadRota();
-    }
-
-    async function setStart(day,slot){
-      const start=prompt('Start time (HH:MM)','15:00');
-      if(!start) return;
-      const m=document.getElementById('month').value;
-      await fetch(`${API}/api/rota/${m}/slot/${day}/${slot}`, {
-        method: 'PATCH',
-        headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({start:start})
-      });
-      loadRota();
-    }
-
-    /* ========== HOURS / REQUESTS (combined button) ========== */
-    function showHours(){ showRota(); document.getElementById('hoursCard').style.display='block'; document.getElementById('reqCard').style.display='none'; }
-    function showRequests(){ showRota(); document.getElementById('hoursCard').style.display='none'; document.getElementById('reqCard').style.display='block'; loadReqTable(); }
-
-    async function submitHours() {
-      const data = {
-        user_id: USER.id,
-        date: document.getElementById('hwDate').value,
-        start: document.getElementById('hwStart').value,
-        finish: document.getElementById('hwEnd').value
-      };
-      await fetch(`${API}/api/hours`, {
-        method: 'POST',
-        headers: {'Content-Type':'application/json'},
-        body: JSON.stringify(data)
-      });
-      alert('Hours logged');
-      showRota();
-    }
-
-    async function loadReqTable() {
-      const admin = USER.role==='admin';
-      const res = await fetch(`${API}/api/requests` + (admin ? '?admin=1' : '?user='+USER.id));
-      const list = await res.json();
-      const tbl = document.getElementById('reqTable');
-      tbl.innerHTML = '<tr class="head"><td>Date</td><td>Name</td><td>Note</td><td>Status</td>'+(admin?'<td>Action</td>':'')+'</tr>';
-      list.forEach(r=>{
-        let row = `<tr><td>${r.date}</td><td>${r.name}</td><td>${r.note||'—'}</td><td>${r.status}</td>`;
-        if(admin && r.status==='pending'){
-          row += `<td><button onclick="decideReq(${r.id},'approved')">✓</button>
-                      <button onclick="decideReq(${r.id},'declined')">✗</button></td>`;
-        }else if(admin){ row += '<td></td>'; }
-        row += '</tr>';
-        tbl.innerHTML += row;
-      });
-    }
-
-    async function submitRequest() {
-      const date = document.getElementById('reqDate').value;
-      const note = document.getElementById('reqNote').value;
-      if(!date){alert('Pick a date');return;}
-      await fetch(`${API}/api/requests`, {
-        method: 'POST',
-        headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({user_id:USER.id, date, note})
-      });
-      loadReqTable();
-    }
-
-    async function decideReq(id,status){
-      await fetch(`${API}/api/requests/${id}`, {
-        method: 'PATCH',
-        headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({status})
-      });
-      loadReqTable();
-    }
-
-    /* ========== STAFF PANEL (admin only) ========== */
-    function showStaff(){
-      document.getElementById('rotaCard').style.display='none';
-      document.getElementById('hoursCard').style.display='none';
-      document.getElementById('reqCard').style.display='none';
-      document.getElementById('staffCard').style.display='block';
-      loadStaff();
-      loadOverview();
-    }
-
-    async function loadStaff(){
-      const res = await fetch(`${API}/api/users`);
-      const users = await res.json();
-      const tbl = document.getElementById('staffTable');
-      tbl.innerHTML = '<tr class="head"><td>Name</td><td>Email</td><td>Role</td><td>Hours</td><td>Action</td></tr>';
-      users.forEach(u=>{
-        const row = `<tr>
-          <td>${u.name}</td><td>${u.email}</td><td>${u.role}</td><td>${u.contracted_hours}</td>
-          <td>
-            <button onclick="editUser(${u.id},'${u.name}',${u.contracted_hours})">Edit</button>
-            <button onclick="delUser(${u.id})">Del</button>
-          </td>
-        </tr>`;
-        tbl.innerHTML += row;
-      });
-    }
-
-    async function loadOverview(){
-      const month = document.getElementById('month').value;
-      const res  = await fetch(`${API}/api/users`);
-      const users= await res.json();
-      const div  Current Staff -->
-        <h4>Current Staff</h4>
-        <table id="staffTable"></table>
-      </div>
-    </main>
-  </div>
-
-  <script>
-    const API = 'https://tavern-backend-j82t.onrender.com';
-    let USER = null;
-
-    /* ========== LOGIN ========== */
-    async function login() {
-      const email = document.getElementById('email').value;
-      const pw = document.getElementById('password').value;
-      const msgEl = document.getElementById('msg');
-      msgEl.textContent = '';
-      try {
-        const res = await fetch(`${API}/api/auth/login`, {
-          method: 'POST',
-          headers: {'Content-Type':'application/json'},
-          body: JSON.stringify({email, password: pw})
-        });
-        const data = await res.json();
-        if (data.error) { msgEl.textContent = data.error; return; }
-        USER = data;
-        document.getElementById('userInfo').innerHTML = `<b>${USER.name}</b><br>Role: ${USER.role}<br>Contracted: ${USER.contracted_hours} h`;
-        document.getElementById('loginWrap').style.display = 'none';
-        document.getElementById('app').style.display = 'flex';
-        document.getElementById('btnGen').disabled = USER.role !== 'admin';
-        document.getElementById('btnPub').disabled = USER.role !== 'admin';
-        document.getElementById('btnStaff').disabled = USER.role !== 'admin';
-        loadRota();
-      } catch (e) {
-        msgEl.textContent = 'Back-end unreachable';
-      }
-    }
-
-    function logout(){ location.reload(); }
-
-    /* ========== ROTA (with day-off blocking) ========== */
-    async function loadRota() {
-      const m = document.getElementById('month').value;
-      const grid = document.getElementById('grid');
-      grid.innerHTML='<tr><td colspan="7">Loading…</td></tr>';
-      try {
-        // fetch rota + requests in one call
         const [rotaRes, reqRes] = await Promise.all([
           fetch(`${API}/api/rota/${m}`),
           fetch(`${API}/api/requests?user=${USER.id}`)
@@ -422,26 +224,12 @@
       loadRota();
     }
 
-    /* ========== HOURS / REQUESTS / STAFF ========== */
+    /* ========== HOURS + REQUESTS (same card) ========== */
+    function showHours(){ showRota(); document.getElementById('hoursReqCard').style.display='block'; loadReqTable(); }
     function showRota() {
-      document.getElementById('hoursCard').style.display='none';
-      document.getElementById('reqCard').style.display='none';
+      document.getElementById('hoursReqCard').style.display='none';
       document.getElementById('staffCard').style.display='none';
       document.getElementById('rotaCard').style.display='block';
-    }
-    function showHours() {
-      document.getElementById('rotaCard').style.display='none';
-      document.getElementById('hoursCard').style.display='block';
-    }
-    function showRequests() {
-      document.getElementById('rotaCard').style.display='none';
-      document.getElementById('reqCard').style.display='block';
-      loadReqTable();
-    }
-    function showStaff() {
-      document.getElementById('rotaCard').style.display='none';
-      document.getElementById('staffCard').style.display='block';
-      loadStaff();
     }
 
     async function submitHours() {
@@ -461,18 +249,12 @@
     }
 
     async function loadReqTable() {
-      const admin = USER.role==='admin';
-      const res = await fetch(`${API}/api/requests` + (admin ? '?admin=1' : '?user='+USER.id));
+      const res = await fetch(`${API}/api/requests?user=${USER.id}`);
       const list = await res.json();
       const tbl = document.getElementById('reqTable');
-      tbl.innerHTML = '<tr class="head"><td>Date</td><td>Name</td><td>Note</td><td>Status</td>'+(admin?'<td>Action</td>':'')+'</tr>';
+      tbl.innerHTML = '<tr class="head"><td>Date</td><td>Note</td><td>Status</td></tr>';
       list.forEach(r=>{
-        let row = `<tr><td>${r.date}</td><td>${r.name}</td><td>${r.note||'—'}</td><td>${r.status}</td>`;
-        if(admin && r.status==='pending'){
-          row += `<td><button onclick="decideReq(${r.id},'approved')">✓</button>
-                      <button onclick="decideReq(${r.id},'declined')">✗</button></td>`;
-        }else if(admin){ row += '<td></td>'; }
-        row += '</tr>';
+        let row = `<tr><td>${r.date}</td><td>${r.note||'—'}</td><td>${r.status}</td></tr>`;
         tbl.innerHTML += row;
       });
     }
@@ -489,23 +271,22 @@
       loadReqTable();
     }
 
-    async function decideReq(id,status){
-      await fetch(`${API}/api/requests/${id}`, {
-        method: 'PATCH',
-        headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({status})
-      });
-      loadReqTable();
+    /* ========== STAFF PANEL (admin only) ========== */
+    function showStaff(){
+      document.getElementById('rotaCard').style.display='none';
+      document.getElementById('hoursReqCard').style.display='none';
+      document.getElementById('staffCard').style.display='block';
+      loadStaff();
     }
 
-    /* ========== STAFF PANEL (admin only) ========== */
-    async function loadStaff() {
+    async function loadStaff(){
+      const month = document.getElementById('month').value;
       const res = await fetch(`${API}/api/users`);
-      const list = await res.json();
+      const users = await res.json();
       const tbl = document.getElementById('staffTable');
-      tbl.innerHTML = '<tr class="head"><td>Name</td><td>Email</td><td>Role</td><td>Contracted</td><td>Worked</td><td>Needed</td><td>Requests</td><td>Actions</td></tr>';
-      for(const u of list){
-        const report = await (await fetch(`${API}/api/report/2025-11?user=${u.id}`)).json();
+      tbl.innerHTML = '<tr class="head"><td>Name</td><td>Email</td><td>Role</td><td>Contracted</td><td>Worked</td><td>Needed</td><td>Pending Requests</td><td>Actions</td></tr>';
+      for(const u of users){
+        const report = await (await fetch(`${API}/api/report/${month}?user=${u.id}`)).json();
         const reqRes = await (await fetch(`${API}/api/requests?user=${u.id}`)).json();
         const worked = report[u.name]?.worked || 0;
         const needed = report[u.name]?.needed || u.contracted_hours;
