@@ -14,9 +14,9 @@
     .error{color:var(--red)}
     table{width:100%;border-collapse:collapse;margin-top:1rem;text-align:center}
     td,th{border:1px solid var(--gold);padding:.4rem 0;width:14.28%}
-    .red{background:var(--red)}
-    .head{font-weight:bold;background:rgba(212,175,55,.15)}
-    .pub{background:#2e7d32}
+    .red{background:var(--red)}.head{font-weight:bold;background:rgba(212,175,55,.15)}
+    .bar{background:var(--gold);height:10px;border-radius:4px;margin:2px 0}
+    .warn{color:var(--red);font-size:.9rem}
   </style>
 </head>
 <body>
@@ -62,7 +62,9 @@
           <button onclick="loadRota()">Load</button>
           <button id="genBtn" style="display:${USER.role==='admin'?'inline-block':'none'}" onclick="generateRota()">Generate</button>
           <button id="pubBtn" style="display:${USER.role==='admin'?'inline-block':'none'}" onclick="publishRota()">Publish</button>
+          <button onclick="showHours()">Log Hours</button>
           <button onclick="showRequests()">Day-off requests</button>
+          <div id="hoursBar"></div>
           <table id="grid"></table>
           <button onclick="location.reload()">Logout</button>
         </div>`;
@@ -72,6 +74,7 @@
     async function loadRota() {
       const m = document.getElementById('month').value;
       const grid = document.getElementById('grid');
+      const barDiv = document.getElementById('hoursBar');
       grid.innerHTML='<tr><td colspan="7">Loading…</td></tr>';
       try {
         const res = await fetch(`${API}/api/rota/${m}`);
@@ -80,6 +83,17 @@
         const published = ans.published;
         document.getElementById('pubBtn').className = published ? 'pub' : '';
 
+        // ----- hours progress bars -----
+        let bars = '<h3>Contracted hours progress</h3>';
+        for(const [name,obj] of Object.entries(ans.hours)){
+          const pc = obj.pc;
+          bars += `<div>${name}  ${obj.worked} / ${obj.contracted} hrs  
+                   <div class="bar" style="width:${pc}%"></div> ${pc}%  
+                   ${pc<90?'<span class="warn">⚠ low</span>':''}</div>`;
+        }
+        barDiv.innerHTML = bars;
+
+        // ----- calendar -----
         const [yr,mo] = m.split('-');
         const firstDay = new Date(yr, mo-1, 1).getDay();
         const monShift = (firstDay + 6) % 7;
@@ -111,36 +125,62 @@
       loadRota();
     }
 
+    // ==================== HOURS LOGGER ====================
+    function showHours() {
+      const div = document.createElement('div');
+      div.className = 'card';
+      div.innerHTML = `<h3>Log worked hours</h3>
+        <input type="date" id="hwDate" value="${new Date().toISOString().slice(0,10)}">
+        <input type="time" id="hwStart" value="09:00">
+        <input type="time" id="hwEnd" value="17:00">
+        <button onclick="submitHours()">Save</button>
+        <button onclick="showRota()">Close</button>`;
+      document.body.appendChild(div);
+    }
+
+    async function submitHours() {
+      const data = {
+        user_id: USER.id,
+        date: document.getElementById('hwDate').value,
+        start: document.getElementById('hwStart').value,
+        finish: document.getElementById('hwEnd').value
+      };
+      await fetch(`${API}/api/hours`, {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify(data)
+      });
+      alert('Hours logged – reload month to see progress');
+      showRota();
+    }
+
     // ==================== DAY-OFF REQUESTS ====================
-    async function showRequests() {
-      const reqDiv = document.createElement('div');
-      reqDiv.className = 'card';
-      reqDiv.innerHTML = `<h3>Day-off requests</h3>
+    function showRequests() {
+      const div = document.createElement('div');
+      div.className = 'card';
+      div.innerHTML = `<h3>Day-off requests</h3>
         <table id="reqTable"></table>
         <h4>Request a day off</h4>
         <input type="date" id="reqDate">
         <input placeholder="reason (optional)" id="reqNote">
         <button onclick="submitRequest()">Submit</button>
         <button onclick="showRota()">Close</button>`;
-      document.body.appendChild(reqDiv);
+      document.body.appendChild(div);
       loadReqTable();
     }
 
     async function loadReqTable() {
       const admin = USER.role==='admin';
-      const res = await fetch(`${API}/api/requests` + (admin ? '' : '?user='+USER.id));
+      const res = await fetch(`${API}/api/requests` + (admin ? '?admin=1' : '?user='+USER.id));
       const list = await res.json();
       const tbl = document.getElementById('reqTable');
-      tbl.innerHTML = '<tr class="head"><td>Date</td><td>Name</td><td>Note</td><td>Status</td>' +
-                      (admin?'<td>Action</td>':'') + '</tr>';
+      tbl.innerHTML = '<tr class="head"><td>Date</td><td>Name</td><td>Note</td><td>Status</td>'+(admin?'<td>Action</td>':'')+'</tr>';
       list.forEach(r=>{
         let row = `<tr><td>${r.date}</td><td>${r.name}</td><td>${r.note||'—'}</td><td>${r.status}</td>`;
-        if(admin){
-          row += `<td>
-            ${r.status==='pending'?`<button onclick="decideReq(${r.id},'approved')">✓</button>
-                                    <button onclick="decideReq(${r.id},'declined')">✗</button>`:''}
-          </td>`;
-        }
+        if(admin && r.status==='pending'){
+          row += `<td><button onclick="decideReq(${r.id},'approved')">✓</button>
+                      <button onclick="decideReq(${r.id},'declined')">✗</button></td>`;
+        }else if(admin){ row += '<td></td>'; }
         row += '</tr>';
         tbl.innerHTML += row;
       });
