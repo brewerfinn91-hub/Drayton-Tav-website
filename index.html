@@ -9,6 +9,7 @@
     :root{--wood:#2c1e0f;--gold:#d4af37;--cream:#f3e9c3;--red:#c0392b;--bg:#1a120b;}
     *{box-sizing:border-box;margin:0;padding:0}
     body{font-family:'Roboto',sans-serif;background:url('logo.png') center/cover no-repeat fixed, linear-gradient(rgba(26,18,11,.9),rgba(26,18,11,.9)); color:var(--cream); height:100vh; display:flex}
+    /* LOGIN */
     .login-wrap{width:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:2rem}
     .logo{width:240px; margin-bottom:1.5rem; filter:drop-shadow(0 0 10px var(--gold))}
     .login-card{background:rgba(0,0,0,.5); border:2px solid var(--gold); border-radius:12px; padding:2rem 2.5rem; width:100%; max-width:380px; text-align:center}
@@ -17,6 +18,7 @@
     .login-card button{width:100%; padding:.8rem; margin-top:.5rem; border:none; border-radius:6px; background:var(--gold); color:#000; font-weight:bold; font-size:1rem; cursor:pointer; transition:.2s}
     .login-card button:hover{filter:brightness(1.1)}
     .error{color:var(--red); margin-top:.5rem}
+    /* APP */
     .app{display:none; flex:1; height:100vh}
     nav{width:240px; background:var(--wood); border-right:3px solid var(--gold); padding:1.5rem 1rem; display:flex; flex-direction:column}
     nav h3{font-family:'Cinzel',serif; text-align:center; margin-bottom:1.5rem; letter-spacing:1px}
@@ -57,7 +59,7 @@
       <button id="btnLoad"   onclick="loadRota()">Load Month</button>
       <button id="btnGen"    onclick="generateRota()" disabled>Generate</button>
       <button id="btnPub"    onclick="publishRota()" disabled>Publish</button>
-      <button id="btnHours"  onclick="showHours()">Log Hours / Day-off</button>
+      <button id="btnHours"  onclick="showHoursReq()">Log Hours / Day-off</button>
       <button id="btnStaff"  onclick="showStaff()" disabled>Staff Panel</button>
       <button onclick="logout()">Logout</button>
       <div id="userInfo" style="margin-top:1rem;font-size:.85rem;"></div>
@@ -89,7 +91,7 @@
         <button onclick="submitRequest()">Submit Request</button>
 
         <!-- Existing Requests -->
-        <h4>Your Requests</h4>
+        <h4>Requests</h4>
         <table id="reqTable"></table>
 
         <button onclick="showRota()">Close</button>
@@ -225,7 +227,7 @@
     }
 
     /* ========== HOURS + REQUESTS (same card) ========== */
-    function showHours(){ showRota(); document.getElementById('hoursReqCard').style.display='block'; loadReqTable(); }
+    function showHoursReq(){ showRota(); document.getElementById('hoursReqCard').style.display='block'; loadReqTable(); }
     function showRota() {
       document.getElementById('hoursReqCard').style.display='none';
       document.getElementById('staffCard').style.display='none';
@@ -249,12 +251,18 @@
     }
 
     async function loadReqTable() {
-      const res = await fetch(`${API}/api/requests?user=${USER.id}`);
+      const admin = USER.role==='admin';
+      const res = await fetch(`${API}/api/requests' + (admin ? '?admin=1' : '?user='+USER.id));
       const list = await res.json();
       const tbl = document.getElementById('reqTable');
-      tbl.innerHTML = '<tr class="head"><td>Date</td><td>Note</td><td>Status</td></tr>';
+      tbl.innerHTML = '<tr class="head"><td>Date</td><td>Name</td><td>Note</td><td>Status</td>'+(admin?'<td>Action</td>':'')+'</tr>';
       list.forEach(r=>{
-        let row = `<tr><td>${r.date}</td><td>${r.note||'—'}</td><td>${r.status}</td></tr>`;
+        let row = `<tr><td>${r.date}</td><td>${r.name}</td><td>${r.note||'—'}</td><td>${r.status}</td>`;
+        if(admin && r.status==='pending'){
+          row += `<td><button onclick="decideReq(${r.id},'approved')">✓</button>
+                      <button onclick="decideReq(${r.id},'declined')">✗</button></td>`;
+        }else if(admin){ row += '<td></td>'; }
+        row += '</tr>';
         tbl.innerHTML += row;
       });
     }
@@ -267,6 +275,203 @@
         method: 'POST',
         headers: {'Content-Type':'application/json'},
         body: JSON.stringify({user_id:USER.id, date, note})
+      });
+      loadReqTable();
+    }
+
+    async function decideReq(id,status){
+      await fetch(`${API}/api/requests/${id}`, {
+        method: 'PATCH',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({status})
+      });
+      loadReqTable();
+    }
+
+    /* ========== STAFF PANEL (admin only) ========== */
+    function showStaff(){
+      document.getElementById('rotaCard').style.display='none';
+      document.getElementById('hoursReqCard').style.display='none';
+      document.getElementById      </div>
+
+      <!-- STAFF PANEL (admin only) -->
+      <div id="staffCard" class="card" style="display:none">
+        <h3>Staff Panel</h3>
+
+        <!-- Add User -->
+        <h4>Add User</h4>
+        <input id="addName" placeholder="Name">
+        <input id="addEmail" placeholder="email">
+        <select id="addRole"><option>barstaff</option><option>admin</option></select>
+        <input id="addHours" type="number" placeholder="contracted hours" value="40">
+        <button onclick="addUser()">Add</button>
+
+        <!-- Current Staff -->
+        <h4>Current Staff – Hours & Requests</h4>
+        <table id="staffTable"></table>
+
+        <!-- Admin Requests Section -->
+        <h4>All Pending Day-off Requests (Admin)</h4>
+        <table id="adminReqTable"></table>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    const API = 'https://tavern-backend-j82t.onrender.com';
+    let USER = null;
+
+    /* ========== LOGIN / LOGOUT ========== */
+    async function login() {
+      const email = document.getElementById('email').value;
+      const pw = document.getElementById('password').value;
+      const msgEl = document.getElementById('msg');
+      msgEl.textContent = '';
+      try {
+        const res = await fetch(`${API}/api/auth/login`, {
+          method: 'POST',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({email, password: pw})
+        });
+        const data = await res.json();
+        if (data.error) { msgEl.textContent = data.error; return; }
+        USER = data;
+        document.getElementById('userInfo').innerHTML = `<b>${USER.name}</b><br>Role: ${USER.role}<br>Contracted: ${USER.contracted_hours} h`;
+        document.getElementById('loginWrap').style.display = 'none';
+        document.getElementById('app').style.display = 'flex';
+        document.getElementById('btnGen').disabled = USER.role !== 'admin
+                  document.getElementById('btnPub').disabled = USER.role !== 'admin';
+        document.getElementById('btnStaff').disabled = USER.role !== 'admin';
+        loadRota();
+      } catch (e) {
+        msgEl.textContent = 'Back-end unreachable';
+      }
+    }
+
+    function logout(){ location.reload(); }
+
+    /* ========== ROTA ========== */
+    async function loadRota() {
+      const m = document.getElementById('month').value;
+      const grid = document.getElementById('grid');
+      grid.innerHTML='<tr><td colspan="7">Loading…</td></tr>';
+      try {
+        const res = await fetch(`${API}/api/rota/${m}`);
+        const ans  = await res.json();
+        const days = ans.days;
+        const published = ans.published;
+        document.getElementById('btnPub').className = published ? 'pub' : '';
+
+        const [yr,mo] = m.split('-');
+        const firstDay = new Date(yr, mo-1, 1).getDay();
+        const monShift = (firstDay + 6) % 7;
+        const daysInMo = new Date(yr, mo, 0).getDate();
+
+        const head = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+        let html = '<tr class="head">' + head.map(d=>`<th>${d}</th>`).join('') + '</tr><tr>';
+        for(let i=0;i<monShift;i++) html += '<td></td>';
+
+        for(let day=1; day<=daysInMo; day++){
+          const slots = days[day] || [];
+          const wd = new Date(yr,mo-1,day).getDay();
+          let cell = `<td><b>${day}</b><br>`;
+          slots.forEach(s=>{
+            const editable = USER.role==='admin' && s.slot===2 && s.start==='';
+            cell += `<div class="slot${s.slot===2?' slot2':''}">${s.name} ${s.start}-${s.finish}</div>`;
+            if(editable) cell += `<button onclick="setStart(${day},2)">Set start</button>`;
+          });
+          if(!slots.length) cell += '<span class="red">—</span>';
+          cell += '</td>';
+          html += cell;
+          if((monShift + day) % 7 === 0) html += '</tr><tr>';
+        }
+        html += '</tr>';
+        grid.innerHTML = html;
+      }catch(e){ grid.innerHTML='<tr><td colspan="7">Error loading rota</td></tr>'; }
+    }
+
+    async function generateRota() {
+      const m = document.getElementById('month').value;
+      await fetch(`${API}/api/rota/${m}/generate`, {method: 'POST'});
+      loadRota();
+    }
+
+    async function publishRota() {
+      const m = document.getElementById('month').value;
+      await fetch(`${API}/api/rota/${m}/publish`, {method: 'POST'});
+      loadRota();
+    }
+
+    async function setStart(day,slot){
+      const start=prompt('Start time (HH:MM)','15:00');
+      if(!start) return;
+      const m=document.getElementById('month').value;
+      await fetch(`${API}/api/rota/${m}/slot/${day}/${slot}`, {
+        method: 'PATCH',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({start:start})
+      });
+      loadRota();
+    }
+
+    /* ========== HOURS + REQUESTS (same card) ========== */
+    function showHoursReq(){ showRota(); document.getElementById('hoursReqCard').style.display='block'; loadReqTable(); }
+    function showRota() {
+      document.getElementById('hoursReqCard').style.display='none';
+      document.getElementById('staffCard').style.display='none';
+      document.getElementById('rotaCard').style.display='block';
+    }
+
+    async function submitHours() {
+      const data = {
+        user_id: USER.id,
+        date: document.getElementById('hwDate').value,
+        start: document.getElementById('hwStart').value,
+        finish: document.getElementById('hwEnd').value
+      };
+      await fetch(`${API}/api/hours`, {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify(data)
+      });
+      alert('Hours logged');
+      showRota();
+    }
+
+    async function loadReqTable() {
+      const admin = USER.role==='admin';
+      const res = await fetch(`${API}/api/requests' + (admin ? '?admin=1' : '?user='+USER.id));
+      const list = await res.json();
+      const tbl = document.getElementById('reqTable');
+      tbl.innerHTML = '<tr class="head"><td>Date</td><td>Name</td><td>Note</td><td>Status</td>'+(admin?'<td>Action</td>':'')+'</tr>';
+      list.forEach(r=>{
+        let row = `<tr><td>${r.date}</td><td>${r.name}</td><td>${r.note||'—'}</td><td>${r.status}</td>`;
+        if(admin && r.status==='pending'){
+          row += `<td><button onclick="decideReq(${r.id},'approved')">✓</button>
+                      <button onclick="decideReq(${r.id},'declined')">✗</button></td>`;
+        }else if(admin){ row += '<td></td>'; }
+        row += '</tr>';
+        tbl.innerHTML += row;
+      });
+    }
+
+    async function submitRequest() {
+      const date = document.getElementById('reqDate').value;
+      const note = document.getElementById('reqNote').value;
+      if(!date){alert('Pick a date');return;}
+      await fetch(`${API}/api/requests`, {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({user_id:USER.id, date, note})
+      });
+      loadReqTable();
+    }
+
+    async function decideReq(id,status){
+      await fetch(`${API}/api/requests/${id}`, {
+        method: 'PATCH',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({status})
       });
       loadReqTable();
     }
@@ -304,6 +509,18 @@
           </td>
         </tr>`;
       }
+      // Admin sees ALL pending requests
+      const allReq = await (await fetch(`${API}/api/requests?admin=1`)).json();
+      const adminTbl = document.getElementById('adminReqTable');
+      adminTbl.innerHTML = '<tr class="head"><td>Date</td><td>Name</td><td>Note</td><td>Status</td><td>Action</td></tr>';
+      allReq.filter(r=>r.status==='pending').forEach(r=>{
+        adminTbl.innerHTML += `<tr>
+          <td>${r.date}</td><td>${r.name}</td><td>${r.note||'—'}</td><td>${r.status}</td>
+          <td>
+            <button onclick="decideReq(${r.id},'approved')">✓ Approve</button>
+            <button onclick="decideReq(${r.id},'declined')">✗ Decline</button>
+          </td>
+        </tr>`;
     }
 
     async function setContracted(userId,hours){
