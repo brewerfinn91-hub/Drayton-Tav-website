@@ -6,116 +6,30 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=Roboto:wght@300&display=swap" rel="stylesheet">
   <style>
-    :root{
-      --wood:#2c1e0f;
-      --gold:#d4af37;
-      --cream:#f3e9c3;
-      --red:#c0392b;
-    }
+    :root{--wood:#2c1e0f;--gold:#d4af37;--cream:#f3e9c3;--red:#c0392b;}
     *{box-sizing:border-box;margin:0;padding:0}
-    body{
-      font-family:'Roboto',sans-serif;
-      background:url('logo.png') center/cover no-repeat fixed, linear-gradient(rgba(44,30,15,.85),rgba(44,30,15,.85));
-      color:var(--cream);
-      height:100vh;
-      display:flex;
-    }
-    /* === LOGIN PAGE === */
-    .login-wrap{
-      width:100%;
-      display:flex;
-      flex-direction:column;
-      align-items:center;
-      justify-content:center;
-      padding:2rem;
-    }
-    .logo{
-      width:220px;
-      margin-bottom:1.5rem;
-      filter:drop-shadow(0 0 8px var(--gold));
-    }
-    .login-card{
-      background:rgba(0,0,0,.45);
-      border:2px solid var(--gold);
-      border-radius:12px;
-      padding:2rem 2.5rem;
-      width:100%;
-      max-width:360px;
-      text-align:center;
-    }
-    .login-card h2{
-      font-family:'Cinzel',serif;
-      font-size:1.8rem;
-      margin-bottom:1rem;
-      letter-spacing:1px;
-    }
-    .login-card input{
-      width:100%;
-      padding:.7rem;
-      margin:.6rem 0;
-      border:none;
-      border-radius:6px;
-      font-size:1rem;
-    }
-    .login-card button{
-      width:100%;
-      padding:.8rem;
-      margin-top:.5rem;
-      border:none;
-      border-radius:6px;
-      background:var(--gold);
-      color:#000;
-      font-weight:bold;
-      font-size:1rem;
-      cursor:pointer;
-      transition:.2s;
-    }
-    .login-card button:hover{filter:brightness(1.1);}
-    .error{color:var(--red);margin-top:.5rem;}
-
-    /* === AFTER LOGIN === */
-    .app{display:none;flex:1;height:100vh;}
-    nav{
-      width:220px;
-      background:var(--wood);
-      border-right:3px solid var(--gold);
-      padding:1.5rem 1rem;
-      display:flex;
-      flex-direction:column;
-    }
-    nav h3{
-      font-family:'Cinzel',serif;
-      text-align:center;
-      margin-bottom:1.5rem;
-      letter-spacing:1px;
-    }
-    nav button{
-      width:100%;
-      margin:.4rem 0;
-      padding:.7rem;
-      border:none;
-      border-radius:6px;
-      background:var(--gold);
-      color:#000;
-      font-weight:bold;
-      cursor:pointer;
-      transition:.2s;
-    }
-    nav button:hover{filter:brightness(1.1);}
-    nav button:disabled{background:#666;cursor:not-allowed;}
-    main{flex:1;padding:2rem;overflow-y:auto;}
-    .card{
-      background:rgba(0,0,0,.35);
-      border:1px solid var(--gold);
-      border-radius:8px;
-      padding:1.5rem;
-      margin-bottom:1.5rem;
-    }
-    table{width:100%;border-collapse:collapse;margin-top:1rem;text-align:center;}
-    td,th{border:1px solid var(--gold);padding:.5rem;}
-    th{background:rgba(212,175,55,.15);}
-    .red{background:var(--red);}
-    .slot2{background:rgba(212,175,55,.08);}
+    body{font-family:'Roboto',sans-serif;background:url('logo.png') center/cover no-repeat fixed, linear-gradient(rgba(44,30,15,.85),rgba(44,30,15,.85));color:var(--cream);height:100vh;display:flex}
+    .login-wrap{width:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:2rem}
+    .logo{width:220px;margin-bottom:1.5rem;filter:drop-shadow(0 0 8px var(--gold))}
+    .login-card{background:rgba(0,0,0,.45);border:2px solid var(--gold);border-radius:12px;padding:2rem 2.5rem;width:100%;max-width:360px;text-align:center}
+    .login-card h2{font-family:'Cinzel',serif;font-size:1.8rem;margin-bottom:1rem;letter-spacing:1px}
+    .login-card input{width:100%;padding:.7rem;margin:.6rem 0;border:none;border-radius:6px;font-size:1rem}
+    .login-card button{width:100%;padding:.8rem;margin-top:.5rem;border:none;border-radius:6px;background:var(--gold);color:#000;font-weight:bold;font-size:1rem;cursor:pointer;transition:.2s}
+    .login-card button:hover{filter:brightness(1.1)}
+    .error{color:var(--red);margin-top:.5rem}
+    .app{display:none;flex:1;height:100vh}
+    nav{width:220px;background:var(--wood);border-right:3px solid var(--gold);padding:1.5rem 1rem;display:flex;flex-direction:column}
+    nav h3{font-family:'Cinzel',serif;text-align:center;margin-bottom:1.5rem;letter-spacing:1px}
+    nav button{width:100%;margin:.4rem 0;padding:.7rem;border:none;border-radius:6px;background:var(--gold);color:#000;font-weight:bold;cursor:pointer;transition:.2s}
+    nav button:hover{filter:brightness(1.1)}
+    nav button:disabled{background:#666;cursor:not-allowed}
+    main{flex:1;padding:2rem;overflow-y:auto}
+    .card{background:rgba(0,0,0,.35);border:1px solid var(--gold);border-radius:8px;padding:1.5rem;margin-bottom:1.5rem}
+    table{width:100%;border-collapse:collapse;margin-top:1rem;text-align:center}
+    td,th{border:1px solid var(--gold);padding:.5rem}
+    th{background:rgba(212,175,55,.15)}
+    .red{background:var(--red)}
+    .slot2{background:rgba(212,175,55,.08)}
   </style>
 </head>
 <body>
@@ -176,7 +90,6 @@
     const API = 'https://tavern-backend-j82t.onrender.com';
     let USER = null;
 
-    /* ========== LOGIN ========== */
     async function login() {
       const email = document.getElementById('email').value;
       const pw = document.getElementById('password').value;
@@ -202,11 +115,8 @@
       }
     }
 
-    function logout(){
-      location.reload();
-    }
+    function logout(){ location.reload(); }
 
-    /* ========== ROTA ========== */
     async function loadRota() {
       const m = document.getElementById('month').value;
       const grid = document.getElementById('grid');
@@ -270,11 +180,6 @@
       loadRota();
     }
 
-    /* ========== HOURS / REQUESTS ========== */
-    function showHours() {
-      document.getElementById('rotaCard').style.display='none';
-      document.getElementById('hoursCard').style.display='block';
-    }
     async function submitHours() {
       const data = {
         user_id: USER.id,
@@ -290,10 +195,16 @@
       alert('Hours logged');
       showRota();
     }
+
     function showRota() {
       document.getElementById('hoursCard').style.display='none';
       document.getElementById('reqCard').style.display='none';
       document.getElementById('rotaCard').style.display='block';
+    }
+
+    function showHours() {
+      document.getElementById('rotaCard').style.display='none';
+      document.getElementById('hoursCard').style.display='block';
     }
 
     function showRequests() {
@@ -301,6 +212,7 @@
       document.getElementById('reqCard').style.display='block';
       loadReqTable();
     }
+
     async function loadReqTable() {
       const admin = USER.role==='admin';
       const res = await fetch(`${API}/api/requests` + (admin ? '?admin=1' : '?user='+USER.id));
@@ -317,6 +229,7 @@
         tbl.innerHTML += row;
       });
     }
+
     async function submitRequest() {
       const date = document.getElementById('reqDate').value;
       const note = document.getElementById('reqNote').value;
@@ -328,6 +241,7 @@
       });
       loadReqTable();
     }
+
     async function decideReq(id,status){
       await fetch(`${API}/api/requests/${id}`, {
         method: 'PATCH',
