@@ -2,76 +2,181 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Tavern Rota</title>
+  <title>The Drayton Tavern – Rota</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=Roboto:wght@300&display=swap" rel="stylesheet">
   <style>
-    :root{--bg:#1a120b;--surface:#2c2416;--gold:#d4af37;--red:#c0392b;--text:#e3d9c1;}
-    body{background:var(--bg);color:var(--text);font-family:Cinzel,serif;margin:0;height:100vh;display:flex}
-    .side{background:var(--surface);width:200px;padding:1rem;border-right:2px solid var(--gold);}
-    .side h3{margin:.5rem 0;font-size:1.1rem}
-    .side button{width:100%;margin:.3rem 0;padding:.6rem;background:var(--gold);color:#000;border:none;border-radius:4px;font-weight:bold;cursor:pointer}
-    .side button:disabled{background:#666;cursor:not-allowed}
-    .main{flex:1;padding:1.5rem;overflow-y:auto}
-    .card{background:var(--surface);padding:1rem;border:1px solid var(--gold);border-radius:6px;margin-bottom:1rem}
-    input{padding:.4rem;margin:.2rem;border:none;border-radius:3px}
-    table{width:100%;border-collapse:collapse;margin-top:1rem;text-align:center}
-    td,th{border:1px solid var(--gold);padding:.4rem}
-    .red{background:var(--red)}
-    .head{font-weight:bold;background:rgba(212,175,55,.2)}
-    .slot2{background:rgba(212,175,55,.1)}
+    :root{
+      --wood:#2c1e0f;
+      --gold:#d4af37;
+      --cream:#f3e9c3;
+      --red:#c0392b;
+    }
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{
+      font-family:'Roboto',sans-serif;
+      background:url('logo.png') center/cover no-repeat fixed, linear-gradient(rgba(44,30,15,.85),rgba(44,30,15,.85));
+      color:var(--cream);
+      height:100vh;
+      display:flex;
+    }
+    /* === LOGIN PAGE === */
+    .login-wrap{
+      width:100%;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      padding:2rem;
+    }
+    .logo{
+      width:220px;
+      margin-bottom:1.5rem;
+      filter:drop-shadow(0 0 8px var(--gold));
+    }
+    .login-card{
+      background:rgba(0,0,0,.45);
+      border:2px solid var(--gold);
+      border-radius:12px;
+      padding:2rem 2.5rem;
+      width:100%;
+      max-width:360px;
+      text-align:center;
+    }
+    .login-card h2{
+      font-family:'Cinzel',serif;
+      font-size:1.8rem;
+      margin-bottom:1rem;
+      letter-spacing:1px;
+    }
+    .login-card input{
+      width:100%;
+      padding:.7rem;
+      margin:.6rem 0;
+      border:none;
+      border-radius:6px;
+      font-size:1rem;
+    }
+    .login-card button{
+      width:100%;
+      padding:.8rem;
+      margin-top:.5rem;
+      border:none;
+      border-radius:6px;
+      background:var(--gold);
+      color:#000;
+      font-weight:bold;
+      font-size:1rem;
+      cursor:pointer;
+      transition:.2s;
+    }
+    .login-card button:hover{filter:brightness(1.1);}
+    .error{color:var(--red);margin-top:.5rem;}
+
+    /* === AFTER LOGIN === */
+    .app{display:none;flex:1;height:100vh;}
+    nav{
+      width:220px;
+      background:var(--wood);
+      border-right:3px solid var(--gold);
+      padding:1.5rem 1rem;
+      display:flex;
+      flex-direction:column;
+    }
+    nav h3{
+      font-family:'Cinzel',serif;
+      text-align:center;
+      margin-bottom:1.5rem;
+      letter-spacing:1px;
+    }
+    nav button{
+      width:100%;
+      margin:.4rem 0;
+      padding:.7rem;
+      border:none;
+      border-radius:6px;
+      background:var(--gold);
+      color:#000;
+      font-weight:bold;
+      cursor:pointer;
+      transition:.2s;
+    }
+    nav button:hover{filter:brightness(1.1);}
+    nav button:disabled{background:#666;cursor:not-allowed;}
+    main{flex:1;padding:2rem;overflow-y:auto;}
+    .card{
+      background:rgba(0,0,0,.35);
+      border:1px solid var(--gold);
+      border-radius:8px;
+      padding:1.5rem;
+      margin-bottom:1.5rem;
+    }
+    table{width:100%;border-collapse:collapse;margin-top:1rem;text-align:center;}
+    td,th{border:1px solid var(--gold);padding:.5rem;}
+    th{background:rgba(212,175,55,.15);}
+    .red{background:var(--red);}
+    .slot2{background:rgba(212,175,55,.08);}
   </style>
 </head>
 <body>
-  <!-- ===== LEFT MENU ===== -->
-  <nav class="side">
-    <h3>🍺 Tavern Rota</h3>
-    <button id="btnLoad"   onclick="loadRota()">Load Month</button>
-    <button id="btnGen"    onclick="generateRota()" disabled>Generate</button>
-    <button id="btnPub"    onclick="publishRota()" disabled>Publish</button>
-    <button id="btnHours"  onclick="showHours()">Log Hours</button>
-    <button id="btnReq"    onclick="showRequests()">Day-off Requests</button>
-    <button onclick="location.reload()">Logout</button>
-    <div id="userInfo" style="margin-top:1rem;font-size:.9rem"></div>
-  </nav>
-
-  <!-- ===== MAIN CONTENT ===== -->
-  <main class="main">
-    <div id="loginCard" class="card">
-      <h2>Tavern Login</h2>
+  <!-- ========== LOGIN SCREEN ========== -->
+  <div class="login-wrap" id="loginWrap">
+    <img src="logo.png" alt="The Drayton Tavern" class="logo">
+    <div class="login-card">
+      <h2>The Drayton Tavern</h2>
       <input id="email" placeholder="email">
       <input id="password" type="password" placeholder="password">
       <p id="msg" class="error"></p>
       <button onclick="login()">Enter</button>
     </div>
-    <div id="rotaCard" class="card" style="display:none">
-      <h2>Monthly Rota</h2>
-      <label>Month: <input type="month" id="month" value="2025-11"></label>
-      <table id="grid"></table>
-    </div>
-    <div id="hoursCard" class="card" style="display:none">
-      <h3>Log worked hours</h3>
-      <input type="date" id="hwDate" value="${new Date().toISOString().slice(0,10)}">
-      <input type="time" id="hwStart" value="14:00">
-      <input type="time" id="hwEnd" value="22:00">
-      <button onclick="submitHours()">Save</button>
-      <button onclick="showRota()">Close</button>
-    </div>
-    <div id="reqCard" class="card" style="display:none">
-      <h3>Day-off requests</h3>
-      <table id="reqTable"></table>
-      <h4>Request a day off</h4>
-      <input type="date" id="reqDate">
-      <input placeholder="reason (optional)" id="reqNote">
-      <button onclick="submitRequest()">Submit</button>
-      <button onclick="showRota()">Close</button>
-    </div>
-  </main>
+  </div>
+
+  <!-- ========== APP (hidden until login) ========== -->
+  <div class="app" id="app">
+    <nav>
+      <h3>🍺 Tavern Menu</h3>
+      <button id="btnLoad"   onclick="loadRota()">Load Month</button>
+      <button id="btnGen"    onclick="generateRota()" disabled>Generate</button>
+      <button id="btnPub"    onclick="publishRota()" disabled>Publish</button>
+      <button id="btnHours"  onclick="showHours()">Log Hours</button>
+      <button id="btnReq"    onclick="showRequests()">Day-off Requests</button>
+      <button onclick="logout()">Logout</button>
+      <div id="userInfo" style="margin-top:1rem;font-size:.85rem;"></div>
+    </nav>
+
+    <main>
+      <div id="rotaCard" class="card">
+        <h2>Monthly Rota</h2>
+        <label>Month: <input type="month" id="month" value="2025-11"></label>
+        <table id="grid"></table>
+      </div>
+
+      <div id="hoursCard" class="card" style="display:none">
+        <h3>Log Worked Hours</h3>
+        <input type="date" id="hwDate" value="${new Date().toISOString().slice(0,10)}">
+        <input type="time" id="hwStart" value="14:00">
+        <input type="time" id="hwEnd" value="22:00">
+        <button onclick="submitHours()">Save</button>
+        <button onclick="showRota()">Close</button>
+      </div>
+
+      <div id="reqCard" class="card" style="display:none">
+        <h3>Day-off Requests</h3>
+        <table id="reqTable"></table>
+        <h4>Request a Day Off</h4>
+        <input type="date" id="reqDate">
+        <input placeholder="reason (optional)" id="reqNote">
+        <button onclick="submitRequest()">Submit</button>
+        <button onclick="showRota()">Close</button>
+      </div>
+    </main>
+  </div>
 
   <script>
     const API = 'https://tavern-backend-j82t.onrender.com';
     let USER = null;
 
+    /* ========== LOGIN ========== */
     async function login() {
       const email = document.getElementById('email').value;
       const pw = document.getElementById('password').value;
@@ -87,8 +192,8 @@
         if (data.error) { msgEl.textContent = data.error; return; }
         USER = data;
         document.getElementById('userInfo').innerHTML = `<b>${USER.name}</b><br>Role: ${USER.role}<br>Contracted: ${USER.contracted_hours} h`;
-        document.getElementById('loginCard').style.display = 'none';
-        document.getElementById('rotaCard').style.display = 'block';
+        document.getElementById('loginWrap').style.display = 'none';
+        document.getElementById('app').style.display = 'flex';
         document.getElementById('btnGen').disabled = USER.role !== 'admin';
         document.getElementById('btnPub').disabled = USER.role !== 'admin';
         loadRota();
@@ -97,7 +202,11 @@
       }
     }
 
-    // ==================== ROTA ====================
+    function logout(){
+      location.reload();
+    }
+
+    /* ========== ROTA ========== */
     async function loadRota() {
       const m = document.getElementById('month').value;
       const grid = document.getElementById('grid');
@@ -161,7 +270,7 @@
       loadRota();
     }
 
-    // ==================== HOURS LOGGER ====================
+    /* ========== HOURS / REQUESTS ========== */
     function showHours() {
       document.getElementById('rotaCard').style.display='none';
       document.getElementById('hoursCard').style.display='block';
@@ -187,7 +296,6 @@
       document.getElementById('rotaCard').style.display='block';
     }
 
-    // ==================== DAY-OFF REQUESTS ====================
     function showRequests() {
       document.getElementById('rotaCard').style.display='none';
       document.getElementById('reqCard').style.display='block';
@@ -195,7 +303,7 @@
     }
     async function loadReqTable() {
       const admin = USER.role==='admin';
-      const res = await fetch(`${API}/api/requests' + (admin ? '?admin=1' : '?user='+USER.id));
+      const res = await fetch(`${API}/api/requests` + (admin ? '?admin=1' : '?user='+USER.id));
       const list = await res.json();
       const tbl = document.getElementById('reqTable');
       tbl.innerHTML = '<tr class="head"><td>Date</td><td>Name</td><td>Note</td><td>Status</td>'+(admin?'<td>Action</td>':'')+'</tr>';
