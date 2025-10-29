@@ -27,14 +27,30 @@ class Rota(db.Model):
     slot       = db.Column(db.Integer, default=1)
     published  = db.Column(db.Boolean, default=False)
 
-# ==================== DEMO DATA ====================
-def ensure_demo():
-    if not User.query.filter_by(email='dean@tavern.com').first():
-        dean    = User(name='Dean', email='dean@tavern.com', password='dean', role='admin', contracted_hours=0)
-        heather = User(name='Heather', email='heather@tavern.com', password='heather', contracted_hours=80)
-        finn    = User(name='Finn', email='finn@tavern.com', password='finn', contracted_hours=140)
-        db.session.add_all([dean, heather, finn])
-        db.session.commit()
+class Hours(db.Model):
+    id      = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    date    = db.Column(db.Date, nullable=False)
+    start   = db.Column(db.DateTime)
+    finish  = db.Column(db.DateTime)
+
+class Request(db.Model):
+    id      = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    date    = db.Column(db.Date, nullable=False)
+    status  = db.Column(db.String(20), default='pending')
+    note    = db.Column(db.Text)
+
+# ===== FORCE RESET DEMO =====
+with app.app_context():
+    db.drop_all()
+    db.create_all()
+    # ===== NEW DEMO DATA (username = password = lowercase name) =====
+    dean    = User(name='Dean', email='dean@tavern.com', password='dean', role='admin', contracted_hours=0)
+    heather = User(name='Heather', email='heather@tavern.com', password='heather', contracted_hours=80)
+    finn    = User(name='Finn', email='finn@tavern.com', password='finn', contracted_hours=140)
+    db.session.add_all([dean, heather, finn])
+    db.session.commit()
 
 # ==================== ROUTES ====================
 @app.route('/')
@@ -74,11 +90,9 @@ def generate_rota(month):
         if d==0: continue
         wd = datetime.date(y,m,d).weekday()
         st, fn = ('14:00','22:00') if wd<4 else ('12:00','22:00') if wd==5 else ('12:00','17:00')
-        # slot 1
         idx = (d-1) % len(staff)
         db.session.add(Rota(month=month, day=d, user_id=staff[idx].id, start=st, finish=fn, slot=1))
-        # slot 2  (Fri/Sat only)
-        if wd in (4,5):
+        if wd in (4,5):  # Fri/Sat second slot
             db.session.add(Rota(month=month, day=d, user_id=staff[(idx+1)%len(staff)].id, start='', finish=fn, slot=2))
     db.session.commit()
     return jsonify({'ok':True})
@@ -96,14 +110,6 @@ def publish_rota(month):
     db.session.commit()
     return jsonify({'ok':True})
 
-# ---------- HOURS ----------
-class Hours(db.Model):
-    id      = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    date    = db.Column(db.Date, nullable=False)
-    start   = db.Column(db.DateTime)
-    finish  = db.Column(db.DateTime)
-
 @app.route('/api/hours', methods=['POST'])
 def log_hours():
     data = request.get_json()
@@ -114,14 +120,6 @@ def log_hours():
     db.session.add(h)
     db.session.commit()
     return jsonify({'ok':True})
-
-# ---------- REQUESTS ----------
-class Request(db.Model):
-    id      = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    date    = db.Column(db.Date, nullable=False)
-    status  = db.Column(db.String(20), default='pending')
-    note    = db.Column(db.Text)
 
 @app.route('/api/requests', methods=['GET'])
 def list_requests():
@@ -150,9 +148,5 @@ def decide_request(req_id):
     return jsonify({'ok':True})
 
 # ---------- START ----------
-with app.app_context():
-    db.create_all()
-    ensure_demo()
-
 if __name__ == '__main__':
     app.run(debug=True)
