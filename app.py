@@ -1,7 +1,7 @@
 from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
-import datetime, os, calendar
+import datetime, calendar, os
 
 app = Flask(__name__)
 CORS(app)
@@ -15,60 +15,44 @@ class User(db.Model):
     email            = db.Column(db.String(120), unique=True, nullable=False)
     password         = db.Column(db.String(120), nullable=False)
     role             = db.Column(db.String(20), default='barstaff')
-    contracted_hours = db.Column(db.Float, default=40.0)   # NEW
+    contracted_hours = db.Column(db.Float, default=0.0)
 
 class Rota(db.Model):
-    id        = db.Column(db.Integer, primary_key=True)
-    month     = db.Column(db.String(7), nullable=False)   # 2025-11
-    day       = db.Column(db.Integer, nullable=False)
-    user_id   = db.Column(db.Integer, db.ForeignKey('user.id'))
-    published = db.Column(db.Boolean, default=False)
-
-class Hours(db.Model):        # clock-in / clock-out
-    id      = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    date    = db.Column(db.Date, nullable=False)
-    start   = db.Column(db.DateTime)
-    finish  = db.Column(db.DateTime)
-
-class Request(db.Model):
-    id      = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    date    = db.Column(db.Date, nullable=False)
-    status  = db.Column(db.String(20), default='pending')
-    note    = db.Column(db.Text)
+    id         = db.Column(db.Integer, primary_key=True)
+    month      = db.Column(db.String(7), nullable=False)   # 2025-11
+    day        = db.Column(db.Integer, nullable=False)
+    user_id    = db.Column(db.Integer, db.ForeignKey('user.id'))
+    start      = db.Column(db.String(5), default='')       # HH:MM
+    finish     = db.Column(db.String(5), default='')
+    slot       = db.Column(db.Integer, default=1)          # 1 or 2
+    published  = db.Column(db.Boolean, default=False)
 
 # ==================== DEMO DATA ====================
 def ensure_demo():
-    if not User.query.filter_by(email='tav@tavern.com').first():
-        tav = User(name='Tav', email='tav@tavern.com', password='pint123', role='admin', contracted_hours=40)
-        db.session.add(tav)
-        for n,h in [('Finn',35),('Heather',30),('Autumn',40),('Nathan',40)]:
-            db.session.add(User(name=n, email=f'{n.lower()}@tavern.com', password='pint123', contracted_hours=h))
+    if not User.query.filter_by(email='admin@tavern.com').first():
+        admin = User(name='Dean', email='admin@tavern.com', password='pint123', role='admin', contracted_hours=0)
+        h     = User(name='Heather', email='heather@tavern.com', password='pint123', contracted_hours=80)
+        f     = User(name='Finn', email='finn@tavern.com', password='pint123', contracted_hours=140)
+        db.session.add_all([admin,h,f])
         db.session.commit()
 
 # ==================== HELPERS ====================
-def month_weekdays(year, month):
-    """return number of Mon-Fri in month"""
-    cal = calendar.Calendar()
-    return len([d for d in cal.itermonthdays(year, month) if d and cal.weekday(year, month, d) < 5])
+DAILY = {0:('14:00','22:00'),   # Mon
+         1:('14:00','22:00'),   # Tue
+         2:('14:00','22:00'),   # Wed
+         3:('14:00','22:00'),   # Thu
+         4:('14:00','00:00'),   # Fri  (10h)
+         5:('12:00','22:00'),   # Sat  (10h)
+         6:('12:00','17:00')}   # Sun  (5h)
 
-def worked_in_month(user_id, month_str):
-    y, m = map(int, month_str.split('-'))
-    q = db.session.query(db.func.sum(
-            db.func.strftime('%s', Hours.finish) - db.func.strftime('%s', Hours.start)
-         ))\
-        .filter(Hours.user_id == user_id,
-                db.func.strftime('%Y-%m', Hours.date) == month_str)\
-        .scalar()
-    return (q or 0) / 3600   # seconds → hours
+def close_time(weekday):
+    return DAILY[weekday][1]
 
 # ==================== ROUTES ====================
 @app.route('/')
 def hello():
     return "Tavern Rota API is running."
 
-# ---------- AUTH ----------
 @app.route('/api/auth/login', methods=['POST'])
 def login():
     data = request.get_json()
@@ -82,31 +66,43 @@ def login():
 @app.route('/api/rota/<month>')
 def get_rota(month):
     published = bool(Rota.query.filter_by(month=month).first().published if Rota.query.filter_by(month=month).first() else False)
-    rows = db.session.query(Rota.day, User.name, User.contracted_hours, Rota.published)\
-                     .join(User, Rota.user_id == User.id)\
+    rows = db.session.query(Rota.day, Rota.slot, Rota.start, Rota.finish, User.name)\
+                     .join(User)\
                      .filter(Rota.month == month)\
+                     .order_by(Rota.day, Rota.slot)\
                      .all()
-    days = {day: {'name':name,'contracted':ctr} for day,name,ctr,publ in rows}
-    # hours worked so far
-    hours_info = {}
-    for u in User.query.filter_by(role='barstaff').all():
-        worked = worked_in_month(u.id, month)
-        needed = u.contracted_hours - worked
-        hours_info[u.name] = {'worked':round(worked,1),
-                              'needed':round(needed,1),
-                              'contracted':u.contracted_hours,
-                              'pc': round((worked/u.contracted_hours)*100,0) if u.contracted_hours else 0}
-    return jsonify({'published':published, 'days':days, 'hours':hours_info})
+    out = {}
+    for day,slot,start,finish,name in rows:
+        out.setdefault(day,[]).append({'slot':slot,'name':name,'start':start,'finish':finish})
+    return jsonify({'published':published, 'days':out})
 
 @app.route('/api/rota/<month>/generate', methods=['POST'])
 def generate_rota(month):
+    y,m = map(int, month.split('-'))
     Rota.query.filter_by(month=month).delete()
     staff = User.query.filter_by(role='barstaff').all()
-    if not staff:
-        return jsonify({'error':'No barstaff'}), 400
-    for d in range(1, 32):
-        idx = (d - 1) % len(staff)
-        db.session.add(Rota(month=month, day=d, user_id=staff[idx].id))
+    if not staff: return jsonify({'error':'No barstaff'}), 400
+    cal = calendar.Calendar()
+    for d in cal.itermonthdays(y,m):
+        if d==0: continue
+        wd = datetime.date(y,m,d).weekday()
+        st, fn = DAILY[wd]
+        # slot 1
+        idx = (d-1) % len(staff)
+        db.session.add(Rota(month=month, day=d, user_id=staff[idx].id,
+                            start=st, finish=fn, slot=1))
+        # slot 2  (Fri/Sat only)
+        if wd in (4,5):
+            db.session.add(Rota(month=month, day=d, user_id=staff[(idx+1)%len(staff)].id,
+                                start='', finish=fn, slot=2))
+    db.session.commit()
+    return jsonify({'ok':True})
+
+@app.route('/api/rota/<month>/slot/<int:day>/<int:slot>', methods=['PATCH'])
+def set_slot_time(month, day, slot):
+    data = request.get_json()
+    Rota.query.filter_by(month=month, day=day, slot=slot)\
+              .update({'start':data['start']})
     db.session.commit()
     return jsonify({'ok':True})
 
@@ -116,7 +112,7 @@ def publish_rota(month):
     db.session.commit()
     return jsonify({'ok':True})
 
-# ---------- HOURS (log worked) ----------
+# ---------- HOURS (simple logger) ----------
 @app.route('/api/hours', methods=['POST'])
 def log_hours():
     data = request.get_json()
@@ -128,41 +124,20 @@ def log_hours():
     db.session.commit()
     return jsonify({'ok':True})
 
-# ---------- DAY-OFF REQUESTS ----------
-@app.route('/api/requests', methods=['GET'])
-def list_requests():
-    admin = request.args.get('admin')
-    q = db.session.query(Request.id, Request.date, Request.status, Request.note, User.name)\
-                  .join(User)
-    if admin != '1':
-        q = q.filter(Request.user_id == request.args.get('user'))
-    return jsonify([{'id':r.id,'date':r.date.isoformat(),'status':r.status,'note':r.note,'name':r.name} for r in q])
-
-@app.route('/api/requests', methods=['POST'])
-def create_request():
-    data = request.get_json()
-    req = Request(user_id=data['user_id'],
-                  date=datetime.datetime.strptime(data['date'],'%Y-%m-%d').date(),
-                  note=data.get('note',''))
-    db.session.add(req)
-    db.session.commit()
-    return jsonify({'ok':True})
-
-@app.route('/api/requests/<int:req_id>', methods=['PATCH'])
-def decide_request(req_id):
-    data = request.get_json()
-    Request.query.filter_by(id=req_id).update({'status':data['status']})
-    db.session.commit()
-    return jsonify({'ok':True})
-
-# ---------- REPORT (cron friendly) ----------
+# ---------- REPORT (hours worked this month) ----------
 @app.route('/api/report/<month>')
 def report(month):
     y, m = map(int, month.split('-'))
     staff = User.query.filter_by(role='barstaff').all()
     out = {}
     for s in staff:
-        worked = worked_in_month(s.id, month)
+        q = db.session.query(db.func.sum(
+                db.func.strftime('%s', Hours.finish) - db.func.strftime('%s', Hours.start)
+            ))\
+            .filter(Hours.user_id == s.id,
+                    db.func.strftime('%Y-%m', Hours.date) == month)\
+            .scalar()
+        worked = (q or 0) / 3600
         out[s.name] = {'contracted':s.contracted_hours,
                        'worked':round(worked,1),
                        'balance':round(s.contracted_hours - worked,1)}
