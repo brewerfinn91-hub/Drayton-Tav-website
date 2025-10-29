@@ -117,7 +117,7 @@
   </div>
 
   <script>
-    const API = 'https://tavern-backend-j82t.onrender.com';
+    const API = 'http://localhost:5000';
     let USER = null;
 
     /* ========== LOGIN / LOGOUT ========== */
@@ -545,9 +545,9 @@
       const hours=parseFloat(document.getElementById('addHours').value)||40;
       if(!name||!email){alert('Name & email required');return;}
       await fetch(`${API}/api/users`, {
-        method: 'POST',
-        headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({name,email,password:email.split('@')[0],role,contracted_hours:hours})
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({name,email,password:email.split('@')[0],role,contracted_hours:hours})
       });
       document.getElementById('addName').value='';
       document.getElementById('addEmail').value='';
