@@ -45,7 +45,6 @@ class Request(db.Model):
 with app.app_context():
     db.drop_all()
     db.create_all()
-    # ===== NEW DEMO DATA (username = password = lowercase name) =====
     dean    = User(name='Dean', email='dean@tavern.com', password='dean', role='admin', contracted_hours=0)
     heather = User(name='Heather', email='heather@tavern.com', password='heather', contracted_hours=80)
     finn    = User(name='Finn', email='finn@tavern.com', password='finn', contracted_hours=140)
@@ -66,16 +65,24 @@ def login():
     return jsonify({'id':user.id, 'name':user.name, 'role':user.role,
                     'contracted_hours':user.contracted_hours})
 
+# ---------- ROTA (auto-removes approved day-off) ----------
 @app.route('/api/rota/<month>')
 def get_rota(month):
     published = bool(Rota.query.filter_by(month=month).first().published if Rota.query.filter_by(month=month).first() else False)
-    rows = db.session.query(Rota.day, Rota.slot, Rota.start, Rota.finish, User.name)\
+    # exclude staff on approved day-off
+    approved_dates = db.session.query(Request.user_id, Request.date)\
+                               .filter(Request.status=='approved', Request.date.like(month+'-%'))\
+                               .all()
+    banned = {(u,d.strftime('%Y-%m-%d')) for u,d in approved_dates}
+
+    rows = db.session.query(Rota.day, Rota.slot, Rota.start, Rota.finish, User.name, User.id)\
                      .join(User)\
                      .filter(Rota.month == month)\
                      .order_by(Rota.day, Rota.slot)\
                      .all()
     out = {}
-    for day,slot,start,finish,name in rows:
+    for day,slot,start,finish,name,uid in rows:
+        if (uid, f'{month}-{day:02d}') in banned: continue   # skip approved day-off
         out.setdefault(day,[]).append({'slot':slot,'name':name,'start':start,'finish':finish})
     return jsonify({'published':published, 'days':out})
 
@@ -85,15 +92,25 @@ def generate_rota(month):
     Rota.query.filter_by(month=month).delete()
     staff = User.query.filter_by(role='barstaff').all()
     if not staff: return jsonify({'error':'No barstaff'}), 400
+    # exclude approved day-off
+    approved_dates = db.session.query(Request.user_id, Request.date)\
+                               .filter(Request.status=='approved', Request.date.like(month+'-%'))\
+                               .all()
+    banned = {(u,d) for u,d in approved_dates}
+
     cal = calendar.Calendar()
     for d in cal.itermonthdays(y,m):
         if d==0: continue
         wd = datetime.date(y,m,d).weekday()
         st, fn = ('14:00','22:00') if wd<4 else ('12:00','22:00') if wd==5 else ('12:00','17:00')
-        idx = (d-1) % len(staff)
-        db.session.add(Rota(month=month, day=d, user_id=staff[idx].id, start=st, finish=fn, slot=1))
-        if wd in (4,5):  # Fri/Sat second slot
-            db.session.add(Rota(month=month, day=d, user_id=staff[(idx+1)%len(staff)].id, start='', finish=fn, slot=2))
+        available = [s for s in staff if (s.id, datetime.date(y,m,d)) not in banned]
+        if not available: continue
+        # slot 1
+        idx = (d-1) % len(available)
+        db.session.add(Rota(month=month, day=d, user_id=available[idx].id, start=st, finish=fn, slot=1))
+        # slot 2  (Fri/Sat only)
+        if wd in (4,5) and len(available)>1:
+            db.session.add(Rota(month=month, day=d, user_id=available[(idx+1)%len(available)].id, start='', finish=fn, slot=2))
     db.session.commit()
     return jsonify({'ok':True})
 
@@ -110,6 +127,7 @@ def publish_rota(month):
     db.session.commit()
     return jsonify({'ok':True})
 
+# ---------- HOURS ----------
 @app.route('/api/hours', methods=['POST'])
 def log_hours():
     data = request.get_json()
@@ -121,14 +139,26 @@ def log_hours():
     db.session.commit()
     return jsonify({'ok':True})
 
+@app.route('/api/hours/<month>/<int:user_id>', methods=['GET'])
+def get_hours(month, user_id):
+    q = db.session.query(db.func.sum(
+            db.func.strftime('%s', Hours.finish) - db.func.strftime('%s', Hours.start)
+        ))\
+        .filter(Hours.user_id == user_id,
+                db.func.strftime('%Y-%m', Hours.date) == month)\
+        .scalar()
+    worked = (q or 0) / 3600
+    return jsonify({'worked':round(worked,1)})
+
+# ---------- REQUESTS ----------
 @app.route('/api/requests', methods=['GET'])
 def list_requests():
     admin = request.args.get('admin')
-    q = db.session.query(Request.id, Request.date, Request.status, Request.note, User.name)\
+    q = db.session.query(Request.id, Request.date, Request.status, Request.note, User.name, User.id.label('user_id'))\
                   .join(User)
     if admin != '1':
         q = q.filter(Request.user_id == request.args.get('user'))
-    return jsonify([{'id':r.id,'date':r.date.isoformat(),'status':r.status,'note':r.note,'name':r.name} for r in q])
+    return jsonify([{'id':r.id,'date':r.date.isoformat(),'status':r.status,'note':r.note,'name':r.name,'user_id':r.user_id} for r in q])
 
 @app.route('/api/requests', methods=['POST'])
 def create_request():
@@ -144,6 +174,34 @@ def create_request():
 def decide_request(req_id):
     data = request.get_json()
     Request.query.filter_by(id=req_id).update({'status':data['status']})
+    db.session.commit()
+    return jsonify({'ok':True})
+
+# ---------- USERS (admin only) ----------
+@app.route('/api/users', methods=['GET'])
+def list_users():
+    users = User.query.all()
+    return jsonify([{'id':u.id,'name':u.name,'email':u.email,'role':u.role,'contracted_hours':u.contracted_hours} for u in users])
+
+@app.route('/api/users', methods=['POST'])
+def add_user():
+    data = request.get_json()
+    u = User(name=data['name'], email=data['email'], password=data['password'],
+             role=data.get('role','barstaff'), contracted_hours=data.get('contracted_hours',0))
+    db.session.add(u)
+    db.session.commit()
+    return jsonify({'id':u.id})
+
+@app.route('/api/users/<int:user_id>', methods=['DELETE'])
+def delete_user(user_id):
+    User.query.filter_by(id=user_id).delete()
+    db.session.commit()
+    return jsonify({'ok':True})
+
+@app.route('/api/users/<int:user_id>', methods=['PATCH'])
+def edit_user(user_id):
+    data = request.get_json()
+    User.query.filter_by(id=user_id).update(data)
     db.session.commit()
     return jsonify({'ok':True})
 
