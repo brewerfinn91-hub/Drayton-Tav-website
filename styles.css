@@ -1,0 +1,31 @@
+:root{--wood:#2c1e0f;--gold:#d4af37;--cream:#f3e9c3;--red:#c0392b;--bg:#1a120b;}
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Roboto',sans-serif;background:url('logo.png') center/cover no-repeat fixed, linear-gradient(rgba(26,18,11,.9),rgba(26,18,11,.9)); color:var(--cream); height:100vh; display:flex}
+    /* LOGIN */
+    .login-wrap{width:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:2rem}
+    .logo{width:240px; margin-bottom:1.5rem; filter:drop-shadow(0 0 10px var(--gold))}
+    .login-card{background:rgba(0,0,0,.5); border:2px solid var(--gold); border-radius:12px; padding:2rem 2.5rem; width:100%; max-width:380px; text-align:center}
+    .login-card h2{font-family:'Cinzel',serif; font-size:1.9rem; margin-bottom:1rem; letter-spacing:1px}
+    .login-card input{width:100%; padding:.7rem; margin:.6rem 0; border:none; border-radius:6px; font-size:1rem}
+    .login-card button{width:100%; padding:.8rem; margin-top:.5rem; border:none; border-radius:6px; background:var(--gold); color:#000; font-weight:bold; font-size:1rem; cursor:pointer; transition:.2s}
+    .login-card button:hover{filter:brightness(1.1)}
+    .error{color:var(--red); margin-top:.5rem}
+    /* APP */
+    .app{display:none; flex:1; height:100vh}
+    nav{width:240px; background:var(--wood); border-right:3px solid var(--gold); padding:1.5rem 1rem; display:flex; flex-direction:column}
+    nav h3{font-family:'Cinzel',serif; text-align:center; margin-bottom:1.5rem; letter-spacing:1px}
+    nav button{width:100%; margin:.4rem 0; padding:.7rem; border:none; border-radius:6px; background:var(--gold); color:#000; font-weight:bold; cursor:pointer; transition:.2s}
+    nav button:hover{filter:brightness(1.1)}
+    nav button:disabled{background:#666; cursor:not-allowed}
+    main{flex:1; padding:2rem; overflow-y:auto}
+    .card{background:rgba(0,0,0,.35); border:1px solid var(--gold); border-radius:8px; padding:1.5rem; margin-bottom:1.5rem}
+    h4{font-family:'Cinzel',serif; margin:.8rem 0 .4rem}
+    input{padding:.5rem; margin:.3rem .2rem; border:none; border-radius:4px}
+    button{padding:.5rem .8rem; margin:.2rem; border:none; border-radius:4px; background:var(--gold); color:#000; font-weight:bold; cursor:pointer}
+    table{width:100%; border-collapse:collapse; margin-top:1rem; text-align:center}
+    td,th{border:1px solid var(--gold); padding:.5rem}
+    th{background:rgba(212,175,55,.15)}
+    .red{background:var(--red)}
+    .slot2{background:rgba(212,175,55,.08)}
+    .bar{background:var(--gold); height:8px; border-radius:4px; margin:2px 0}
+    .warn{color:var(--red); font-size:.8rem}
