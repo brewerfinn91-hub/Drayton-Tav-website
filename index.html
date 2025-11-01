@@ -252,7 +252,7 @@
 
     async function loadReqTable() {
       const admin = USER.role==='admin';
-      const url = `${API}/api/requests${admin ? '?admin=1' : '?user=' + USER.id}`;
+      const url = "${API}/api/requests?${admin ? 'admin=1' : 'user=' + USER.id}";
       const res = await fetch(url);
       const list = await res.json();
       const tbl = document.getElementById('reqTable');
