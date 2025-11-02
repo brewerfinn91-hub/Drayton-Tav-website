@@ -4,6 +4,10 @@ from flask_cors import CORS
 import datetime, calendar, os
 
 app = Flask(__name__)
+# allow GitHub Pages origin
+CORS(app, origins=["https://brewerfinn91-hub.github.io"])
+
+app = Flask(__name__)
 CORS(app)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///tavern.db'
 db = SQLAlchemy(app)
@@ -227,3 +231,4 @@ def report(month):
 # ---------- START ----------
 if __name__ == '__main__':
     app.run(debug=True)
+
