@@ -85,7 +85,7 @@
   </div>
 
   <script>
-    const API = prod ? 'productionurlhere' : 'http://localhost:5000';
+    const API = offline ? 'http://localhost:5000' : 'https://tavern-backend-j82t.onrender.com';
     let USER = null;
 
     /* ========== LOGIN / LOGOUT ========== */
@@ -220,7 +220,7 @@
 
     async function loadReqTable() {
       const admin = USER.role==='admin';
-      const url = `${API}/api/requests${admin ? '?admin=1' : '?user=' + USER.id}`;
+      const url = "${API}/api/requests?${admin ? 'admin=1' : 'user=' + USER.id}";
       const res = await fetch(url);
       const list = await res.json();
       const tbl = document.getElementById('reqTable');
@@ -338,4 +338,69 @@
     }
   </script>
 </body>
+<!-- ===== ADMIN ROTA EDITOR ===== -->
+<script>
+  // ✅ Add any future admin usernames here
+  const adminUsers = ["dean"];
+
+  // ✅ Detect current user from your site (adjust selector if needed)
+  const currentUser = document.getElementById("currentUser")?.textContent.trim().toLowerCase() || "";
+
+  const isAdmin = adminUsers.includes(currentUser);
+
+  if (isAdmin) {
+    makeRotaEditable();
+  }
+
+  function makeRotaEditable() {
+    const rows = document.querySelectorAll("table tr"); // Adjust if your table has a class/ID
+
+    rows.forEach(row => {
+      const dayCell = row.cells[0];
+      if (!dayCell) return;
+
+      const day = dayCell.textContent.trim().toLowerCase();
+      if (day !== "friday" && day !== "saturday") return;
+
+      const shiftCell = row.cells[1];
+      if (!shiftCell) return;
+
+      const isFriday = day === "friday";
+      const start1 = isFriday ? "13:30" : "11:30";
+      const end = "22:00";
+
+      shiftCell.innerHTML = `
+        <div>
+          <label>Staff 1: </label>
+          <input type="time" value="${start1}" class="start1" /> to
+          <input type="time" value="${end}" class="end1" />
+        </div>
+        <div style="margin-top: 4px;">
+          <label>Staff 2: </label>
+          <input type="time" class="start2" /> to
+          <input type="time" value="${end}" class="end2" />
+        </div>
+      `;
+
+      // Load saved values
+      const key = `rota-${day}`;
+      const saved = JSON.parse(localStorage.getItem(key) || "{}");
+      if (saved.start1) shiftCell.querySelector(".start1").value = saved.start1;
+      if (saved.end1) shiftCell.querySelector(".end1").value = saved.end1;
+      if (saved.start2) shiftCell.querySelector(".start2").value = saved.start2;
+      if (saved.end2) shiftCell.querySelector(".end2").value = saved.end2;
+
+      // Save on change
+      shiftCell.addEventListener("change", () => {
+        const data = {
+          start1: shiftCell.querySelector(".start1").value,
+          end1: shiftCell.querySelector(".end1").value,
+          start2: shiftCell.querySelector(".start2").value,
+          end2: shiftCell.querySelector(".end2").value,
+        };
+        localStorage.setItem(key, JSON.stringify(data));
+      });
+    });
+  }
+</script>
 </html>
