@@ -1,7 +1,10 @@
 :root{--wood:#2c1e0f;--gold:#d4af37;--cream:#f3e9c3;--red:#c0392b;--bg:#1a120b;}
     *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:'Roboto',sans-serif;background:#000; height:100vh; display:flex}
+    body{font-family:'Roboto',sans-serif;background:--wood; height:100vh; display:flex}
     /* LOGIN */
+    h1{color:--gold}
+    h2{color:--gold}
+    h3{color:--gold}
     .login-wrap{width:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:2rem}
     .logo{width:240px; margin-bottom:1.5rem; filter:drop-shadow(0 0 10px var(--gold))}
     .login-card{background:rgba(0,0,0,.5); border:2px solid var(--gold); border-radius:12px; padding:2rem 2.5rem; width:100%; max-width:380px; text-align:center}
