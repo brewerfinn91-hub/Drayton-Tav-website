@@ -1,10 +1,11 @@
 :root{--wood:#2c1e0f;--gold:#d4af37;--cream:#f3e9c3;--red:#c0392b;--bg:#1a120b;}
     *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:'Roboto',sans-serif;background:var(--wood); height:100vh; display:flex}
-    /* LOGIN */
+    body{font-family:'Roboto',sans-serif;background:var(--wood); height:100vh; display:flex}    
     h1{color:var(--gold)}
     h2{color:var(--gold)}
     h3{color:var(--gold)}
+    h4{font-family:'Cinzel',serif; margin:.8rem 0 .4rem}
+    /* LOGIN */
     .login-wrap{width:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:2rem}
     .logo{width:240px; margin-bottom:1.5rem; filter:drop-shadow(0 0 10px var(--gold))}
     .login-card{background:rgba(0,0,0,.5); border:2px solid var(--gold); border-radius:12px; padding:2rem 2.5rem; width:100%; max-width:380px; text-align:center}
@@ -22,11 +23,10 @@
     nav button:disabled{background:#666; cursor:not-allowed}
     main{flex:1; padding:2rem; overflow-y:auto}
     .card{background:rgba(0,0,0,.35); border:1px solid var(--gold); border-radius:8px; padding:1.5rem; margin-bottom:1.5rem}
-    h4{font-family:'Cinzel',serif; margin:.8rem 0 .4rem}
     input{padding:.5rem; margin:.3rem .2rem; border:none; border-radius:4px}
     button{padding:.5rem .8rem; margin:.2rem; border:none; border-radius:4px; background:var(--gold); color:#000; font-weight:bold; cursor:pointer}
     table{width:100%; border-collapse:collapse; margin-top:1rem; text-align:center}
-    td,th{border:1px solid var(--gold); padding:.5rem}
+    td,th{border:1px solid var(--gold); padding:.5rem; color:var(--gold)}
     th{background:rgba(212,175,55,.15)}
     .red{background:var(--red)}
     .slot2{background:rgba(212,175,55,.08)}
